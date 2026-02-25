@@ -18,7 +18,7 @@ app.use(session({
     secret: 'your-secret-key-change-this-in-production',
     resave: false,
     saveUninitialized: false,
-    cookie: { 
+    cookie: {
         secure: false, // Set true nếu dùng HTTPS
         httpOnly: true,
         maxAge: 24 * 60 * 60 * 1000 // 24 giờ
@@ -33,7 +33,7 @@ const dbConfig = {
     user: 'sa',
     password: '0944364247',
     server: 'localhost',
-    port: 64957,
+    // port: 64957,
     database: 'newsFeedDb',
     options: {
         encrypt: false,
@@ -53,19 +53,30 @@ function requireAuth(req, res, next) {
 // API đăng ký
 app.post('/api/register', async (req, res) => {
     try {
-        const { username, email, password } = req.body;
-        
-        if (!username || !email || !password) {
+        const { username, email, password, dob } = req.body;
+
+        if (!username || !email || !password || !dob) {
             return res.status(400).json({ error: 'Vui lòng điền đầy đủ thông tin' });
         }
 
+        // Kiểm tra định dạng ngày sinh cơ bản (YYYY-MM-DD)
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(dob)) {
+            return res.status(400).json({ error: 'Ngày sinh không hợp lệ' });
+        }
+
+        // Kiểm tra ngày sinh không sau ngày hiện tại
+        const todayStr = new Date().toISOString().split('T')[0];
+        if (dob > todayStr) {
+            return res.status(400).json({ error: 'Ngày sinh không được sau ngày hiện tại' });
+        }
+
         let pool = await sql.connect(dbConfig);
-        
+
         // Kiểm tra email đã tồn tại chưa
         let checkResult = await pool.request()
             .input('email', sql.VarChar, email)
             .query('SELECT id FROM Users WHERE email = @email');
-        
+
         if (checkResult.recordset.length > 0) {
             return res.status(400).json({ error: 'Email đã được sử dụng' });
         }
@@ -73,23 +84,24 @@ app.post('/api/register', async (req, res) => {
         // Hash password
         const hashedPassword = await bcrypt.hash(password, 10);
 
-        // Tạo user mới
+        // Tạo user mới (lưu cả dob nếu cột tồn tại trong DB)
         let result = await pool.request()
             .input('username', sql.NVarChar, username)
             .input('email', sql.VarChar, email)
             .input('password', sql.VarChar, hashedPassword)
-            .query(`INSERT INTO Users (username, email, password) 
-                    OUTPUT INSERTED.id, INSERTED.username, INSERTED.email
-                    VALUES (@username, @email, @password)`);
+            .input('dob', sql.Date, dob)
+            .query(`INSERT INTO Users (username, email, password, dob) 
+                OUTPUT INSERTED.id, INSERTED.username, INSERTED.email
+                VALUES (@username, @email, @password, @dob)`);
 
         const newUser = result.recordset[0];
-        
+
         // Tạo session
         req.session.userId = newUser.id;
         req.session.username = newUser.username;
-        
-        res.json({ 
-            success: true, 
+
+        res.json({
+            success: true,
             message: 'Đăng ký thành công',
             user: { id: newUser.id, username: newUser.username, email: newUser.email }
         });
@@ -103,27 +115,27 @@ app.post('/api/register', async (req, res) => {
 app.post('/api/login', async (req, res) => {
     try {
         const { email, password } = req.body;
-        
+
         if (!email || !password) {
             return res.status(400).json({ error: 'Vui lòng điền đầy đủ thông tin' });
         }
 
         let pool = await sql.connect(dbConfig);
-        
+
         // Tìm user theo email
         let result = await pool.request()
             .input('email', sql.VarChar, email)
             .query('SELECT id, username, email, password FROM Users WHERE email = @email');
-        
+
         if (result.recordset.length === 0) {
             return res.status(401).json({ error: 'Email hoặc mật khẩu không đúng' });
         }
 
         const user = result.recordset[0];
-        
+
         // Kiểm tra password
         const passwordMatch = await bcrypt.compare(password, user.password);
-        
+
         if (!passwordMatch) {
             return res.status(401).json({ error: 'Email hoặc mật khẩu không đúng' });
         }
@@ -131,9 +143,9 @@ app.post('/api/login', async (req, res) => {
         // Tạo session
         req.session.userId = user.id;
         req.session.username = user.username;
-        
-        res.json({ 
-            success: true, 
+
+        res.json({
+            success: true,
             message: 'Đăng nhập thành công',
             user: { id: user.id, username: user.username, email: user.email }
         });
@@ -156,12 +168,12 @@ app.post('/api/logout', (req, res) => {
 // API kiểm tra trạng thái đăng nhập
 app.get('/api/auth/status', (req, res) => {
     if (req.session && req.session.userId) {
-        res.json({ 
-            loggedIn: true, 
-            user: { 
-                id: req.session.userId, 
-                username: req.session.username 
-            } 
+        res.json({
+            loggedIn: true,
+            user: {
+                id: req.session.userId,
+                username: req.session.username
+            }
         });
     } else {
         res.json({ loggedIn: false });
@@ -187,7 +199,7 @@ app.get('/api/posts', requireAuth, async (req, res) => {
 const PORT = 3000;
 app.listen(PORT, async () => {
     console.log(`Server đang chạy tại http://localhost:${PORT}`);
-    
+
     try {
         // Thử kết nối ngay khi khởi động
         let pool = await sql.connect(dbConfig);

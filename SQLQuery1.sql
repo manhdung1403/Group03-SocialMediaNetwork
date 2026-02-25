@@ -28,3 +28,7 @@ CREATE TABLE Follows (
     following_id INT FOREIGN KEY REFERENCES Users(id),
     UNIQUE(follower_id, following_id)
 );
+
+
+
+
