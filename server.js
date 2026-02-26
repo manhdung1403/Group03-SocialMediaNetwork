@@ -100,7 +100,7 @@ io.on('connection', (socket) => {
     socket.on('register', (userId) => {
         socket.userId = userId;
         onlineUsers.set(String(userId), socket.id);
-        io.emit('user_status', { userId, status: 'online' });
+        io.emit('user_status', { userId, status: 'online', lastSeen: null });
     });
 
     // Xử lý gửi tin nhắn
@@ -180,7 +180,7 @@ io.on('connection', (socket) => {
     socket.on('disconnect', () => {
         if (socket.userId) {
             onlineUsers.delete(String(socket.userId));
-            io.emit('user_status', { userId: socket.userId, status: 'offline', lastSeen: new Date() });
+            io.emit('user_status', { userId: socket.userId, status: 'offline', lastSeen: new Date().toISOString() });
         }
     });
 });
@@ -335,18 +335,39 @@ app.post('/api/conversations', requireAuth, async (req, res) => {
     try {
         const { participantIds, title } = req.body; // participantIds array
         let pool = await sql.connect(dbConfig);
+        // Prevent creating duplicate conversations with the same participant set.
+        const users = Array.from(new Set([req.session.userId].concat(participantIds || []))).map(x => parseInt(x, 10));
+        const count = users.length;
+        // Build comma-separated list for IN() — safe because values are ints from session/body and we cast above.
+        const idsList = users.join(',');
+
+        // Find existing conversation that contains exactly these users
+        const checkQuery = `
+            SELECT cp.conversation_id
+            FROM ConversationParticipants cp
+            WHERE cp.user_id IN (${idsList})
+            GROUP BY cp.conversation_id
+            HAVING COUNT(DISTINCT cp.user_id) = ${count}
+            AND (SELECT COUNT(*) FROM ConversationParticipants cp2 WHERE cp2.conversation_id = cp.conversation_id) = ${count}
+        `;
+        const existing = await pool.request().query(checkQuery);
+        if (existing.recordset && existing.recordset.length > 0) {
+            const convId = existing.recordset[0].conversation_id;
+            return res.json({ success: true, id: convId, existed: true });
+        }
+
+        // Create new conversation
         const insert = await pool.request()
             .input('title', sql.NVarChar, title || null)
             .query(`INSERT INTO Conversations (title) OUTPUT INSERTED.id VALUES (@title)`);
         const convId = insert.recordset[0].id;
-        const users = Array.from(new Set([req.session.userId].concat(participantIds || [])));
         for (const u of users) {
             await pool.request()
                 .input('convId', sql.Int, convId)
                 .input('u', sql.Int, u)
                 .query(`INSERT INTO ConversationParticipants (conversation_id, user_id) VALUES (@convId, @u)`);
         }
-        res.json({ success: true, id: convId });
+        res.json({ success: true, id: convId, existed: false });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
@@ -407,4 +428,23 @@ app.post('/api/unfollow', requireAuth, async (req, res) => {
             .query(`DELETE FROM Follows WHERE follower_id=@me AND following_id=@userId`);
         res.json({ success: true });
     } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Lấy participants (id và username) của conversation
+app.get('/api/conversations/:id/participants', requireAuth, async (req, res) => {
+    try {
+        const convId = parseInt(req.params.id, 10);
+        let pool = await sql.connect(dbConfig);
+        const result = await pool.request()
+            .input('convId', sql.Int, convId)
+            .query(`
+                SELECT u.id, u.username
+                FROM ConversationParticipants cp
+                JOIN Users u ON cp.user_id = u.id
+                WHERE cp.conversation_id = @convId
+            `);
+        res.json(result.recordset);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });

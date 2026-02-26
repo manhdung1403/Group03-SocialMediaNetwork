@@ -5,6 +5,8 @@
     let currentUser = null;
     let currentConv = null;
     let allMessages = []; // messages for current conv
+    let currentOtherId = null;
+    let currentOtherName = null;
 
     const conversationsEl = document.getElementById('conversations');
     const messagesEl = document.getElementById('messages');
@@ -34,6 +36,16 @@
         socket.on('message_sent', onMessageSent);
         socket.on('message_seen', onMessageSeen);
         socket.on('reaction', onReaction);
+        // user online/offline updates
+        socket.on('user_status', (s) => {
+            if (!currentOtherId) return;
+            if (String(s.userId) !== String(currentOtherId)) return;
+            if (s.status === 'online') {
+                chatStatus.textContent = 'Đang hoạt động';
+            } else {
+                chatStatus.textContent = s.lastSeen ? formatRelative(new Date(s.lastSeen)) : 'Không hoạt động';
+            }
+        });
 
         // Load convos first, then open conv param if present. This avoids timing issues
         // where placeholder or messages get overwritten when load/order is indeterminate.
@@ -85,6 +97,31 @@
         renderMessages(msgs);
         chatStatus.textContent = 'Đã kết nối';
         autoScroll();
+        // enable input controls
+        if (messageInput) messageInput.disabled = false;
+        if (sendBtn) sendBtn.disabled = false;
+        if (attachBtn) attachBtn.disabled = false;
+        if (emojiBtn) emojiBtn.disabled = false;
+
+        // fetch participants to determine the other user's name
+        try {
+            const pr = await fetch(`${baseUrl}/api/conversations/${convId}/participants`, { credentials: 'include' });
+            const parts = await pr.json();
+            if (Array.isArray(parts)) {
+                const other = parts.find(p => p.id !== currentUser.id);
+                if (other) {
+                    currentOtherId = other.id;
+                    currentOtherName = other.username;
+                    chatTitle.textContent = other.username || chatTitle.textContent;
+                } else {
+                    currentOtherId = null;
+                    currentOtherName = null;
+                    chatTitle.textContent = title || chatTitle.textContent;
+                }
+            }
+        } catch (err) {
+            currentOtherId = null; currentOtherName = null;
+        }
     }
 
     function renderMessages(msgs) {
@@ -109,6 +146,12 @@
         messagesEl.appendChild(p);
         chatTitle.textContent = 'Chưa có cuộc trò chuyện được chọn';
         chatStatus.textContent = '—';
+        // disable input bar until a conversation is opened
+        if (messageInput) messageInput.disabled = true;
+        if (sendBtn) sendBtn.disabled = true;
+        if (attachBtn) attachBtn.disabled = true;
+        if (emojiBtn) emojiBtn.disabled = true;
+        currentOtherId = null; currentOtherName = null;
     }
 
     function appendMessage(m) {
@@ -122,7 +165,8 @@
         el.className = 'msg ' + (senderId === currentUser.id ? 'me' : '');
         el.dataset.id = m.id;
         // build inner HTML with optional image
-        let inner = `<div class="meta"><strong>${senderId === currentUser.id ? 'Bạn' : 'Người khác'}</strong> · <span class="small">${new Date(created).toLocaleTimeString()}</span></div>`;
+        const displayName = (senderId === currentUser.id) ? 'Bạn' : (currentOtherName || chatTitle.textContent || 'Người khác');
+        let inner = `<div class="meta"><strong>${escapeHtml(displayName)}</strong> · <span class="small">${new Date(created).toLocaleTimeString()}</span></div>`;
         if (text) inner += `<div class="text">${escapeHtml(text)}</div>`;
         // image fields may be image_url or imageUrl
         const imageUrl = m.image_url || m.imageUrl || m.image || null;
@@ -191,7 +235,7 @@
         if (el) { const r = document.createElement('div'); r.className = 'small'; r.textContent = '❤ ' + data.emoji; el.appendChild(r); }
     }
 
-    sendBtn.addEventListener('click', sendMessage);
+    sendBtn.addEventListener('click', (e) => { e.preventDefault(); sendMessage(); });
     messageInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') sendMessage(); });
     attachBtn.addEventListener('click', () => imageInput.click());
     imageInput.addEventListener('change', async (e) => {
@@ -323,6 +367,17 @@
     }
 
     function autoScroll() { messagesEl.scrollTop = messagesEl.scrollHeight; }
+
+    function formatRelative(dt) {
+        const diff = Math.floor((Date.now() - dt.getTime()) / 1000);
+        if (diff < 60) return `${diff} giây trước`;
+        const mins = Math.floor(diff / 60);
+        if (mins < 60) return `${mins} phút trước`;
+        const hours = Math.floor(mins / 60);
+        if (hours < 24) return `${hours} giờ trước`;
+        const days = Math.floor(hours / 24);
+        return `${days} ngày trước`;
+    }
 
     function escapeHtml(s) { return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": "&#39;" }[c])); }
 

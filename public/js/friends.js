@@ -36,15 +36,26 @@
                 followBtn.disabled = false;
             });
             const chatBtn = document.createElement('button'); chatBtn.className = 'btn ghost'; chatBtn.innerHTML = '<i class="fa-solid fa-comment"></i> Chat';
+            // ensure button is enabled (handles back-navigation cached state)
+            chatBtn.disabled = false;
             chatBtn.addEventListener('click', async () => {
                 chatBtn.disabled = true;
-                // create conversation with this user
-                const r = await fetch(`${baseUrl}/api/conversations`, { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ participantIds: [u.id], title: u.username }) });
-                const data = await r.json();
-                if (data && data.id) {
-                    location.href = `${baseUrl}/chat.html?conv=${data.id}`;
-                } else {
-                    alert('Không tạo được cuộc trò chuyện'); chatBtn.disabled = false;
+                try {
+                    // create conversation with this user (server will return existing convo if any)
+                    const r = await fetch(`${baseUrl}/api/conversations`, { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ participantIds: [u.id], title: u.username }) });
+                    const data = await r.json();
+                    if (data && data.id) {
+                        location.href = `${baseUrl}/chat.html?conv=${data.id}`;
+                        return;
+                    } else {
+                        alert('Không tạo được cuộc trò chuyện');
+                    }
+                } catch (err) {
+                    console.error('Error creating conversation', err);
+                    alert('Lỗi khi tạo cuộc trò chuyện');
+                } finally {
+                    // if navigation didn't happen, re-enable the button
+                    chatBtn.disabled = false;
                 }
             });
             actions.appendChild(followBtn); actions.appendChild(chatBtn);
@@ -52,6 +63,16 @@
             usersList.appendChild(el);
         });
     }
+
+    // Handle bfcache / back navigation: if page was restored from cache, reload user list
+    window.addEventListener('pageshow', (ev) => {
+        if (ev.persisted) {
+            loadUsers();
+        } else {
+            // also ensure buttons are enabled if coming back without full reload
+            Array.from(document.querySelectorAll('.btn')).forEach(b => b.disabled = false);
+        }
+    });
 
     await ensureAuth();
     await loadUsers();
