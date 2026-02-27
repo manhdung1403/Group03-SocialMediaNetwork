@@ -91,6 +91,16 @@
             background-color: #fafafa;
         }
 
+        .btn-profile {
+            background-color: transparent;
+            color: #0095f6;
+            border: 1px solid #dbdbdb;
+        }
+
+        .btn-profile:hover {
+            background-color: #fafafa;
+        }
+
         .user-info {
             display: flex;
             align-items: center;
@@ -212,6 +222,7 @@
             </div>
             <div id="userInfo" class="user-info" style="display: none;">
                 <span class="username" id="usernameDisplay"></span>
+                <a class="btn btn-profile" id="profileLink" href="#" style="display: none;">Trang cá nhân</a>
                 <button class="btn btn-logout" id="logoutBtn">Đăng xuất</button>
             </div>
         </div>
@@ -226,8 +237,8 @@
         let currentUser = null;
 
         // Lấy base URL
-        const baseUrl = window.location.origin === 'http://127.0.0.1:5500' || window.location.protocol === 'file:' 
-            ? 'http://localhost:3000' 
+        const baseUrl = window.location.origin === 'http://127.0.0.1:5500' || window.location.protocol === 'file:'
+            ? 'http://localhost:3000'
             : window.location.origin;
 
         // Kiểm tra trạng thái đăng nhập
@@ -237,7 +248,7 @@
                     credentials: 'include'
                 });
                 const data = await response.json();
-                
+
                 if (data.loggedIn) {
                     isLoggedIn = true;
                     currentUser = data.user;
@@ -258,10 +269,13 @@
             const authButtons = document.getElementById('authButtons');
             const userInfo = document.getElementById('userInfo');
             const usernameDisplay = document.getElementById('usernameDisplay');
-            
+            const profileLink = document.getElementById('profileLink');
+
             authButtons.style.display = 'none';
             userInfo.style.display = 'flex';
             usernameDisplay.textContent = currentUser.username;
+            profileLink.href = `${baseUrl}/user/profile.html`;
+            profileLink.style.display = 'inline-block';
         }
 
         // Cập nhật UI khi chưa đăng nhập
@@ -269,14 +283,16 @@
             const authButtons = document.getElementById('authButtons');
             const userInfo = document.getElementById('userInfo');
             const postContainer = document.getElementById('postContainer');
-            
+            const profileLink = document.getElementById('profileLink');
+
             authButtons.style.display = 'flex';
             authButtons.innerHTML = `
                 <a href="${baseUrl}/user/login.html" class="btn btn-login">Đăng nhập</a>
                 <a href="${baseUrl}/user/register.html" class="btn btn-register">Đăng ký</a>
             `;
             userInfo.style.display = 'none';
-            
+            if (profileLink) profileLink.style.display = 'none';
+
             // Hiển thị thông báo yêu cầu đăng nhập
             postContainer.innerHTML = `
                 <div class="login-prompt">
@@ -320,11 +336,11 @@
                 posts.forEach(post => {
                     const postElement = document.createElement('div');
                     postElement.className = 'post-card';
-                    
+
                     const username = post.username || 'User #' + post.user_id;
                     const avatarInitial = username.charAt(0).toUpperCase();
                     const timeAgo = getTimeAgo(new Date(post.created_at));
-                    
+
                     postElement.innerHTML = `
                         <div class="post-header">
                             <div class="post-avatar">${avatarInitial}</div>
@@ -373,7 +389,7 @@
                 });
 
                 const data = await response.json();
-                
+
                 if (data.success) {
                     isLoggedIn = false;
                     currentUser = null;
@@ -387,7 +403,7 @@
         // Gắn sự kiện cho nút đăng xuất
         document.addEventListener('DOMContentLoaded', () => {
             checkAuthStatus();
-            
+
             document.addEventListener('click', (e) => {
                 if (e.target.id === 'logoutBtn') {
                     handleLogout();
