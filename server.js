@@ -6,12 +6,12 @@ const path = require('path');
 const bcrypt = require('bcrypt');
 
 const app = express();
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
 app.use(cors({
     origin: 'http://localhost:3000',
     credentials: true
 }));
-app.use(express.urlencoded({ extended: true }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // Cấu hình session
 app.use(session({
@@ -33,7 +33,7 @@ const dbConfig = {
     user: 'sa',
     password: '0944364247',
     server: 'localhost',
-    port: 64957,
+    //port: 64957,
     database: 'newsFeedDb',
     options: {
         encrypt: false,
@@ -184,15 +184,86 @@ app.get('/api/auth/status', (req, res) => {
 app.get('/api/posts', requireAuth, async (req, res) => {
     try {
         let pool = await sql.connect(dbConfig);
-        let result = await pool.request().query(`
-            SELECT p.id, p.image_url, p.caption, p.created_at, u.id as user_id, u.username
-            FROM Posts p
-            LEFT JOIN Users u ON p.user_id = u.id
-            ORDER BY p.created_at DESC
-        `);
+        let result = await pool.request()
+            .input('currentUserId', sql.Int, req.session.userId)
+            .query(`
+                SELECT 
+                    p.id, 
+                    p.image_url, 
+                    p.caption, 
+                    p.created_at, 
+                    u.id AS user_id, 
+                    u.username,
+                    ISNULL(lc.like_count, 0) AS like_count,
+                    CASE WHEN ul.user_id IS NULL THEN 0 ELSE 1 END AS liked_by_current_user
+                FROM Posts p
+                LEFT JOIN Users u ON p.user_id = u.id
+                LEFT JOIN (
+                    SELECT post_id, COUNT(*) AS like_count
+                    FROM Likes
+                    GROUP BY post_id
+                ) lc ON lc.post_id = p.id
+                LEFT JOIN Likes ul 
+                    ON ul.post_id = p.id AND ul.user_id = @currentUserId
+                ORDER BY p.created_at DESC
+            `);
         res.json(result.recordset);
     } catch (err) {
         res.status(500).send("Lỗi server: " + err.message);
+    }
+});
+
+// API toggle tim (like/unlike) cho bài viết, cộng dồn giữa các user
+app.post('/api/posts/:id/like', requireAuth, async (req, res) => {
+    try {
+        const postId = parseInt(req.params.id, 10);
+        const userId = req.session.userId;
+
+        if (isNaN(postId)) {
+            return res.status(400).json({ error: 'ID bài viết không hợp lệ' });
+        }
+
+        let pool = await sql.connect(dbConfig);
+
+        // Kiểm tra đã like chưa
+        let existing = await pool.request()
+            .input('post_id', sql.Int, postId)
+            .input('user_id', sql.Int, userId)
+            .query(`SELECT id FROM Likes WHERE post_id = @post_id AND user_id = @user_id`);
+
+        let liked;
+
+        if (existing.recordset.length > 0) {
+            // Đã like => bỏ tim
+            await pool.request()
+                .input('post_id', sql.Int, postId)
+                .input('user_id', sql.Int, userId)
+                .query(`DELETE FROM Likes WHERE post_id = @post_id AND user_id = @user_id`);
+            liked = false;
+        } else {
+            // Chưa like => thêm tim
+            await pool.request()
+                .input('post_id', sql.Int, postId)
+                .input('user_id', sql.Int, userId)
+                .query(`INSERT INTO Likes (post_id, user_id) VALUES (@post_id, @user_id)`);
+            liked = true;
+        }
+
+        // Lấy lại tổng số tim
+        let countResult = await pool.request()
+            .input('post_id', sql.Int, postId)
+            .query(`SELECT COUNT(*) AS like_count FROM Likes WHERE post_id = @post_id`);
+
+        const likeCount = countResult.recordset[0].like_count;
+
+        res.json({
+            success: true,
+            liked,
+            like_count: likeCount
+        });
+    } catch (err) {
+        console.error('Lỗi toggle tim:', err);
+        res.status(500).json({ error: "Lỗi server: " + err.message });
     }
 });
 
@@ -211,7 +282,7 @@ app.post('/api/posts', requireAuth, async (req, res) => {
         // Tạo bài đăng mới
         let result = await pool.request()
             .input('user_id', sql.Int, userId)
-            .input('image_url', sql.VarChar, image_url)
+            .input('image_url', sql.NVarChar(sql.MAX), image_url)
             .input('caption', sql.NVarChar, caption || null)
             .query(`
                 INSERT INTO Posts (user_id, image_url, caption, created_at)
@@ -230,6 +301,20 @@ app.post('/api/posts', requireAuth, async (req, res) => {
         console.error('Lỗi tạo bài đăng:', err);
         res.status(500).json({ error: "Lỗi server: " + err.message });
     }
+});
+
+// 404 API JSON
+app.use('/api', (req, res, next) => {
+    res.status(404).json({ error: 'API không tồn tại' });
+});
+
+// Error handler
+app.use((err, req, res, next) => {
+    console.error('Lỗi middleware:', err);
+    if (err && err.type === 'entity.too.large') {
+        return res.status(413).json({ error: 'Payload quá lớn (tối đa 50MB).' });
+    }
+    res.status(500).json({ error: 'Lỗi server: ' + (err && err.message ? err.message : 'Không xác định') });
 });
 
 const PORT = 3000;
