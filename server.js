@@ -10,7 +10,19 @@ const multer = require('multer');
 const fs = require('fs');
 
 const app = express();
-app.use(express.json());
+const server = http.createServer(app);
+
+// --- SOCKET.IO ---
+const io = new Server(server, {
+    cors: {
+        origin: "http://localhost:3000",
+        methods: ["GET", "POST"],
+        credentials: true
+    }
+});
+
+// --- MIDDLEWARE ---
+app.use(express.json({ limit: '50mb' }));
 app.use(cors({
     origin: 'http://localhost:3000',
     credentials: true
@@ -29,12 +41,15 @@ const sessionMiddleware = session({
 });
 app.use(sessionMiddleware);
 
+// Chia sẻ session với Socket.IO
 io.use((socket, next) => {
     sessionMiddleware(socket.request, {}, next);
 });
 
+// Serve static files
 app.use(express.static(path.join(__dirname, 'public')));
 
+// --- MULTER (upload ảnh) ---
 const uploadsDir = path.join(__dirname, 'public', 'uploads');
 if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
 
@@ -50,22 +65,11 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage, limits: { fileSize: 5 * 1024 * 1024 } });
 
-app.post('/api/upload-image', requireAuth, upload.single('image'), (req, res) => {
-    try {
-        if (!req.file) return res.status(400).json({ error: 'No file' });
-        const url = `/uploads/${encodeURIComponent(req.file.filename)}`;
-        res.json({ success: true, url });
-    } catch (err) {
-        console.error('upload error', err);
-        res.status(500).json({ error: err.message });
-    }
-});
-
+// --- DATABASE CONFIG ---
 const dbConfig = {
     user: 'sa',
     password: '0944364247',
     server: 'localhost',
-    // port: 64957,
     database: 'newsFeedDb',
     options: {
         encrypt: false,
@@ -73,7 +77,17 @@ const dbConfig = {
     }
 };
 
-// --- SOCKET.IO REAL-TIME CHAT ---
+// --- AUTH MIDDLEWARE ---
+function requireAuth(req, res, next) {
+    if (req.session && req.session.userId) {
+        return next();
+    }
+    return res.status(401).json({ error: 'Chưa đăng nhập' });
+}
+
+// ============================================================
+// SOCKET.IO REAL-TIME CHAT
+// ============================================================
 const onlineUsers = new Map(); // userId => socketId
 
 io.on('connection', (socket) => {
@@ -146,7 +160,6 @@ io.on('connection', (socket) => {
         } catch (err) { console.error(err); }
     });
 
-    // ✅ Lưu last_seen vào DB khi user disconnect
     socket.on('disconnect', async () => {
         if (socket.userId) {
             onlineUsers.delete(String(socket.userId));
@@ -164,22 +177,38 @@ io.on('connection', (socket) => {
     });
 });
 
-// --- MIDDLEWARE ---
-function requireAuth(req, res, next) {
-    if (req.session && req.session.userId) {
-        return next();
-    } else {
-        return res.status(401).json({ error: 'Chưa đăng nhập' });
+// ============================================================
+// UPLOAD API
+// ============================================================
+app.post('/api/upload-image', requireAuth, upload.single('image'), (req, res) => {
+    try {
+        if (!req.file) return res.status(400).json({ error: 'No file' });
+        const url = `/uploads/${encodeURIComponent(req.file.filename)}`;
+        res.json({ success: true, url });
+    } catch (err) {
+        console.error('upload error', err);
+        res.status(500).json({ error: err.message });
     }
-}
+});
 
-// --- AUTH APIs ---
+// ============================================================
+// AUTH APIs
+// ============================================================
 app.post('/api/register', async (req, res) => {
     try {
         const { username, email, password, dob } = req.body;
+
         if (!username || !email || !password || !dob) {
             return res.status(400).json({ error: 'Vui lòng điền đầy đủ thông tin' });
         }
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(dob)) {
+            return res.status(400).json({ error: 'Ngày sinh không hợp lệ' });
+        }
+        const todayStr = new Date().toISOString().split('T')[0];
+        if (dob > todayStr) {
+            return res.status(400).json({ error: 'Ngày sinh không được sau ngày hiện tại' });
+        }
+
         let pool = await sql.connect(dbConfig);
         let checkResult = await pool.request()
             .input('email', sql.VarChar, email)
@@ -188,6 +217,7 @@ app.post('/api/register', async (req, res) => {
         if (checkResult.recordset.length > 0) {
             return res.status(400).json({ error: 'Email đã được sử dụng' });
         }
+
         const hashedPassword = await bcrypt.hash(password, 10);
         let result = await pool.request()
             .input('username', sql.NVarChar, username)
@@ -201,30 +231,40 @@ app.post('/api/register', async (req, res) => {
         const newUser = result.recordset[0];
         req.session.userId = newUser.id;
         req.session.username = newUser.username;
-        res.json({ success: true, user: newUser });
+        res.json({ success: true, message: 'Đăng ký thành công', user: newUser });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('Lỗi đăng ký:', err);
+        res.status(500).json({ error: 'Lỗi server: ' + err.message });
     }
 });
 
 app.post('/api/login', async (req, res) => {
     try {
         const { email, password } = req.body;
+
+        if (!email || !password) {
+            return res.status(400).json({ error: 'Vui lòng điền đầy đủ thông tin' });
+        }
+
         let pool = await sql.connect(dbConfig);
         let result = await pool.request()
             .input('email', sql.VarChar, email)
             .query('SELECT id, username, email, password FROM Users WHERE email = @email');
 
-        if (result.recordset.length === 0) return res.status(401).json({ error: 'Sai email/mật khẩu' });
+        if (result.recordset.length === 0) {
+            return res.status(401).json({ error: 'Email hoặc mật khẩu không đúng' });
+        }
+
         const user = result.recordset[0];
         const match = await bcrypt.compare(password, user.password);
-        if (!match) return res.status(401).json({ error: 'Sai email/mật khẩu' });
+        if (!match) return res.status(401).json({ error: 'Email hoặc mật khẩu không đúng' });
 
         req.session.userId = user.id;
         req.session.username = user.username;
-        res.json({ success: true, user: { id: user.id, username: user.username } });
+        res.json({ success: true, message: 'Đăng nhập thành công', user: { id: user.id, username: user.username, email: user.email } });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('Lỗi đăng nhập:', err);
+        res.status(500).json({ error: 'Lỗi server: ' + err.message });
     }
 });
 
@@ -238,7 +278,10 @@ app.post('/api/logout', async (req, res) => {
                 .query(`UPDATE Users SET last_seen = GETDATE() WHERE id = @uid`);
         } catch (e) { console.error('logout last_seen error', e); }
     }
-    req.session.destroy(() => res.json({ success: true }));
+    req.session.destroy((err) => {
+        if (err) return res.status(500).json({ error: 'Lỗi khi đăng xuất' });
+        res.json({ success: true, message: 'Đăng xuất thành công' });
+    });
 });
 
 app.get('/api/auth/status', (req, res) => {
@@ -249,77 +292,41 @@ app.get('/api/auth/status', (req, res) => {
     }
 });
 
-// --- POST APIs ---
+// ============================================================
+// POST APIs
+// ============================================================
 app.get('/api/posts', requireAuth, async (req, res) => {
     try {
         let pool = await sql.connect(dbConfig);
-        let result = await pool.request().query(`
-            SELECT p.id, p.image_url, p.caption, p.created_at, u.id as user_id, u.username
-            FROM Posts p
-            LEFT JOIN Users u ON p.user_id = u.id
-            ORDER BY p.created_at DESC
-        `);
+        let result = await pool.request()
+            .input('currentUserId', sql.Int, req.session.userId)
+            .query(`
+                SELECT 
+                    p.id, 
+                    p.image_url, 
+                    p.caption, 
+                    p.created_at, 
+                    u.id AS user_id, 
+                    u.username,
+                    ISNULL(lc.like_count, 0) AS like_count,
+                    CASE WHEN ul.user_id IS NULL THEN 0 ELSE 1 END AS liked_by_current_user
+                FROM Posts p
+                LEFT JOIN Users u ON p.user_id = u.id
+                LEFT JOIN (
+                    SELECT post_id, COUNT(*) AS like_count
+                    FROM Likes
+                    GROUP BY post_id
+                ) lc ON lc.post_id = p.id
+                LEFT JOIN Likes ul 
+                    ON ul.post_id = p.id AND ul.user_id = @currentUserId
+                ORDER BY p.created_at DESC
+            `);
         res.json(result.recordset);
     } catch (err) {
-        res.status(500).send("Lỗi server: " + err.message);
+        res.status(500).json({ error: 'Lỗi server: ' + err.message });
     }
 });
 
-// API toggle tim (like/unlike) cho bài viết, cộng dồn giữa các user
-app.post('/api/posts/:id/like', requireAuth, async (req, res) => {
-    try {
-        const postId = parseInt(req.params.id, 10);
-        const userId = req.session.userId;
-
-        if (isNaN(postId)) {
-            return res.status(400).json({ error: 'ID bài viết không hợp lệ' });
-        }
-
-        let pool = await sql.connect(dbConfig);
-
-        // Kiểm tra đã like chưa
-        let existing = await pool.request()
-            .input('post_id', sql.Int, postId)
-            .input('user_id', sql.Int, userId)
-            .query(`SELECT id FROM Likes WHERE post_id = @post_id AND user_id = @user_id`);
-
-        let liked;
-
-        if (existing.recordset.length > 0) {
-            // Đã like => bỏ tim
-            await pool.request()
-                .input('post_id', sql.Int, postId)
-                .input('user_id', sql.Int, userId)
-                .query(`DELETE FROM Likes WHERE post_id = @post_id AND user_id = @user_id`);
-            liked = false;
-        } else {
-            // Chưa like => thêm tim
-            await pool.request()
-                .input('post_id', sql.Int, postId)
-                .input('user_id', sql.Int, userId)
-                .query(`INSERT INTO Likes (post_id, user_id) VALUES (@post_id, @user_id)`);
-            liked = true;
-        }
-
-        // Lấy lại tổng số tim
-        let countResult = await pool.request()
-            .input('post_id', sql.Int, postId)
-            .query(`SELECT COUNT(*) AS like_count FROM Likes WHERE post_id = @post_id`);
-
-        const likeCount = countResult.recordset[0].like_count;
-
-        res.json({
-            success: true,
-            liked,
-            like_count: likeCount
-        });
-    } catch (err) {
-        console.error('Lỗi toggle tim:', err);
-        res.status(500).json({ error: "Lỗi server: " + err.message });
-    }
-});
-
-// API tạo bài đăng mới
 app.post('/api/posts', requireAuth, async (req, res) => {
     try {
         const { image_url, caption } = req.body;
@@ -330,8 +337,6 @@ app.post('/api/posts', requireAuth, async (req, res) => {
         }
 
         let pool = await sql.connect(dbConfig);
-
-        // Tạo bài đăng mới
         let result = await pool.request()
             .input('user_id', sql.Int, userId)
             .input('image_url', sql.NVarChar(sql.MAX), image_url)
@@ -342,34 +347,102 @@ app.post('/api/posts', requireAuth, async (req, res) => {
                 VALUES (@user_id, @image_url, @caption, GETDATE())
             `);
 
-        const newPost = result.recordset[0];
-
-        res.json({
-            success: true,
-            message: 'Bài đăng đã được tạo thành công',
-            post: newPost
-        });
+        res.json({ success: true, message: 'Bài đăng đã được tạo thành công', post: result.recordset[0] });
     } catch (err) {
         console.error('Lỗi tạo bài đăng:', err);
-        res.status(500).json({ error: "Lỗi server: " + err.message });
+        res.status(500).json({ error: 'Lỗi server: ' + err.message });
     }
 });
 
-// 404 API JSON
-app.use('/api', (req, res, next) => {
-    res.status(404).json({ error: 'API không tồn tại' });
-});
+app.post('/api/posts/:id/like', requireAuth, async (req, res) => {
+    try {
+        const postId = parseInt(req.params.id, 10);
+        const userId = req.session.userId;
 
-// Error handler
-app.use((err, req, res, next) => {
-    console.error('Lỗi middleware:', err);
-    if (err && err.type === 'entity.too.large') {
-        return res.status(413).json({ error: 'Payload quá lớn (tối đa 50MB).' });
+        if (isNaN(postId)) return res.status(400).json({ error: 'ID bài viết không hợp lệ' });
+
+        let pool = await sql.connect(dbConfig);
+        let existing = await pool.request()
+            .input('post_id', sql.Int, postId)
+            .input('user_id', sql.Int, userId)
+            .query(`SELECT id FROM Likes WHERE post_id = @post_id AND user_id = @user_id`);
+
+        let liked;
+        if (existing.recordset.length > 0) {
+            await pool.request()
+                .input('post_id', sql.Int, postId)
+                .input('user_id', sql.Int, userId)
+                .query(`DELETE FROM Likes WHERE post_id = @post_id AND user_id = @user_id`);
+            liked = false;
+        } else {
+            await pool.request()
+                .input('post_id', sql.Int, postId)
+                .input('user_id', sql.Int, userId)
+                .query(`INSERT INTO Likes (post_id, user_id) VALUES (@post_id, @user_id)`);
+            liked = true;
+        }
+
+        let countResult = await pool.request()
+            .input('post_id', sql.Int, postId)
+            .query(`SELECT COUNT(*) AS like_count FROM Likes WHERE post_id = @post_id`);
+
+        res.json({ success: true, liked, like_count: countResult.recordset[0].like_count });
+    } catch (err) {
+        console.error('Lỗi toggle tim:', err);
+        res.status(500).json({ error: 'Lỗi server: ' + err.message });
     }
-    res.status(500).json({ error: 'Lỗi server: ' + (err && err.message ? err.message : 'Không xác định') });
 });
 
-// --- CHAT APIs ---
+// ============================================================
+// USER & FOLLOW APIs
+// ============================================================
+app.get('/api/users', requireAuth, async (req, res) => {
+    try {
+        const me = req.session.userId;
+        let pool = await sql.connect(dbConfig);
+        const result = await pool.request()
+            .input('me', sql.Int, me)
+            .query(`SELECT u.id, u.username, u.avatar,
+                CASE WHEN f.follower_id IS NULL THEN 0 ELSE 1 END AS is_following
+                FROM Users u
+                LEFT JOIN Follows f ON f.following_id = u.id AND f.follower_id = @me
+                WHERE u.id <> @me`);
+        res.json(result.recordset);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/follow', requireAuth, async (req, res) => {
+    try {
+        const me = req.session.userId;
+        const { userId } = req.body;
+        if (!userId) return res.status(400).json({ error: 'userId required' });
+        let pool = await sql.connect(dbConfig);
+        await pool.request()
+            .input('me', sql.Int, me)
+            .input('userId', sql.Int, userId)
+            .query(`IF NOT EXISTS (SELECT 1 FROM Follows WHERE follower_id=@me AND following_id=@userId)
+                INSERT INTO Follows (follower_id, following_id) VALUES (@me, @userId)`);
+        res.json({ success: true });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/unfollow', requireAuth, async (req, res) => {
+    try {
+        const me = req.session.userId;
+        const { userId } = req.body;
+        if (!userId) return res.status(400).json({ error: 'userId required' });
+        let pool = await sql.connect(dbConfig);
+        await pool.request()
+            .input('me', sql.Int, me)
+            .input('userId', sql.Int, userId)
+            .query(`DELETE FROM Follows WHERE follower_id=@me AND following_id=@userId`);
+        res.json({ success: true });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ============================================================
+// CHAT / CONVERSATION APIs
+// ============================================================
 app.get('/api/messages/:receiverId', requireAuth, async (req, res) => {
     try {
         const senderId = req.session.userId;
@@ -383,12 +456,9 @@ app.get('/api/messages/:receiverId', requireAuth, async (req, res) => {
                     OR (sender_id = @rId AND receiver_id = @sId) 
                     ORDER BY created_at ASC`);
         res.json(result.recordset);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
+    } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// ✅ Trả thêm other_last_seen và other_is_online để sidebar hiển thị trạng thái
 app.get('/api/conversations', requireAuth, async (req, res) => {
     try {
         const userId = req.session.userId;
@@ -444,8 +514,7 @@ app.post('/api/conversations', requireAuth, async (req, res) => {
         `;
         const existing = await pool.request().query(checkQuery);
         if (existing.recordset && existing.recordset.length > 0) {
-            const convId = existing.recordset[0].conversation_id;
-            return res.json({ success: true, id: convId, existed: true });
+            return res.json({ success: true, id: existing.recordset[0].conversation_id, existed: true });
         }
 
         const insert = await pool.request()
@@ -462,52 +531,6 @@ app.post('/api/conversations', requireAuth, async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// --- USER APIs ---
-app.get('/api/users', requireAuth, async (req, res) => {
-    try {
-        const me = req.session.userId;
-        let pool = await sql.connect(dbConfig);
-        const result = await pool.request()
-            .input('me', sql.Int, me)
-            .query(`SELECT u.id, u.username, u.avatar,
-                CASE WHEN f.follower_id IS NULL THEN 0 ELSE 1 END AS is_following
-                FROM Users u
-                LEFT JOIN Follows f ON f.following_id = u.id AND f.follower_id = @me
-                WHERE u.id <> @me`);
-        res.json(result.recordset);
-    } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
-app.post('/api/follow', requireAuth, async (req, res) => {
-    try {
-        const me = req.session.userId;
-        const { userId } = req.body;
-        if (!userId) return res.status(400).json({ error: 'userId required' });
-        let pool = await sql.connect(dbConfig);
-        await pool.request()
-            .input('me', sql.Int, me)
-            .input('userId', sql.Int, userId)
-            .query(`IF NOT EXISTS (SELECT 1 FROM Follows WHERE follower_id=@me AND following_id=@userId)
-                INSERT INTO Follows (follower_id, following_id) VALUES (@me, @userId)`);
-        res.json({ success: true });
-    } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
-app.post('/api/unfollow', requireAuth, async (req, res) => {
-    try {
-        const me = req.session.userId;
-        const { userId } = req.body;
-        if (!userId) return res.status(400).json({ error: 'userId required' });
-        let pool = await sql.connect(dbConfig);
-        await pool.request()
-            .input('me', sql.Int, me)
-            .input('userId', sql.Int, userId)
-            .query(`DELETE FROM Follows WHERE follower_id=@me AND following_id=@userId`);
-        res.json({ success: true });
-    } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
-// ✅ Trả thêm last_seen + is_online để client hiển thị trạng thái chính xác
 app.get('/api/conversations/:id/participants', requireAuth, async (req, res) => {
     try {
         const convId = parseInt(req.params.id, 10);
@@ -525,9 +548,7 @@ app.get('/api/conversations/:id/participants', requireAuth, async (req, res) => 
             is_online: onlineUsers.has(String(u.id))
         }));
         res.json(rows);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
+    } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 app.delete('/api/conversations/:id', requireAuth, async (req, res) => {
@@ -540,14 +561,15 @@ app.delete('/api/conversations/:id', requireAuth, async (req, res) => {
             .input('convId', sql.Int, convId)
             .input('userId', sql.Int, userId)
             .query(`SELECT 1 FROM ConversationParticipants WHERE conversation_id = @convId AND user_id = @userId`);
-        if (!check.recordset || check.recordset.length === 0) return res.status(403).json({ error: 'Không có quyền xóa' });
+        if (!check.recordset || check.recordset.length === 0) {
+            return res.status(403).json({ error: 'Không có quyền xóa' });
+        }
 
         await pool.request().input('convId', sql.Int, convId).query(`DELETE FROM Messages WHERE conversation_id = @convId`);
         await pool.request().input('convId', sql.Int, convId).query(`DELETE FROM ConversationParticipants WHERE conversation_id = @convId`);
         await pool.request().input('convId', sql.Int, convId).query(`DELETE FROM Conversations WHERE id = @convId`);
 
         io.to(`conversation_${convId}`).emit('conversation_deleted', { conversationId: convId });
-
         res.json({ success: true });
     } catch (err) {
         console.error('Delete conversation error', err);
@@ -555,10 +577,27 @@ app.delete('/api/conversations/:id', requireAuth, async (req, res) => {
     }
 });
 
-// --- START SERVER ---
+// ============================================================
+// ERROR HANDLERS
+// ============================================================
+app.use('/api', (req, res) => {
+    res.status(404).json({ error: 'API không tồn tại' });
+});
+
+app.use((err, req, res, next) => {
+    console.error('Lỗi middleware:', err);
+    if (err && err.type === 'entity.too.large') {
+        return res.status(413).json({ error: 'Payload quá lớn (tối đa 50MB).' });
+    }
+    res.status(500).json({ error: 'Lỗi server: ' + (err && err.message ? err.message : 'Không xác định') });
+});
+
+// ============================================================
+// START SERVER
+// ============================================================
 const PORT = 3000;
 server.listen(PORT, async () => {
-    console.log(`Server NewsFeed + Chat đang chạy tại http://localhost:${PORT}`);
+    console.log(`🚀 Server NewsFeed + Chat đang chạy tại http://localhost:${PORT}`);
     try {
         let pool = await sql.connect(dbConfig);
         if (pool.connected) console.log("✅ Kết nối SQL Server thành công.");
