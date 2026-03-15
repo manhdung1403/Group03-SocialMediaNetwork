@@ -74,3 +74,4 @@ IF COL_LENGTH('Messages', 'seen_at') IS NULL
     ALTER TABLE Messages ADD seen_at DATETIME NULL;
 IF COL_LENGTH('Messages', 'reaction') IS NULL
     ALTER TABLE Messages ADD reaction NVARCHAR(50) NULL;
+ALTER TABLE Users ADD last_seen DATETIME NULL;

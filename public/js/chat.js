@@ -4,7 +4,7 @@
 
     let currentUser = null;
     let currentConv = null;
-    let allMessages = []; // messages for current conv
+    let allMessages = [];
     let currentOtherId = null;
     let currentOtherName = null;
 
@@ -39,22 +39,22 @@
         socket.on('message_sent', onMessageSent);
         socket.on('message_seen', onMessageSeen);
         socket.on('reaction', onReaction);
-        // user online/offline updates
+
+        // ✅ Cập nhật trạng thái real-time khi user online/offline
         socket.on('user_status', (s) => {
             if (!currentOtherId) return;
             if (String(s.userId) !== String(currentOtherId)) return;
             if (s.status === 'online') {
                 chatStatus.textContent = 'Đang hoạt động';
             } else {
-                chatStatus.textContent = s.lastSeen ? formatRelative(new Date(s.lastSeen)) : 'Không hoạt động';
+                chatStatus.textContent = s.lastSeen
+                    ? 'Hoạt động ' + formatRelative(parseDate(s.lastSeen))
+                    : 'Không hoạt động';
             }
         });
 
-        // Load convos first, then open conv param if present. This avoids timing issues
-        // where placeholder or messages get overwritten when load/order is indeterminate.
         const convs = await loadConversations();
 
-        // If URL contains ?conv=ID open it (after convs loaded)
         const params = new URLSearchParams(window.location.search);
         const convParam = params.get('conv');
         if (convParam) {
@@ -66,7 +66,6 @@
             }
         }
 
-        // no conv selected -> show placeholder
         if (!currentConv) showNoConversationPlaceholder();
     }
 
@@ -100,19 +99,18 @@
         renderMessages(msgs);
         chatStatus.textContent = 'Đã kết nối';
         autoScroll();
-        // enable input controls
+
         if (messageInput) messageInput.disabled = false;
         if (sendBtn) sendBtn.disabled = false;
         if (attachBtn) attachBtn.disabled = false;
         if (emojiBtn) emojiBtn.disabled = false;
         if (convMenuBtn) convMenuBtn.disabled = false;
 
-        // highlight selected conv in sidebar
         Array.from(conversationsEl.children).forEach(el => {
             el.style.background = (String(el.dataset.id) === String(currentConv)) ? '#0b1220' : '';
         });
 
-        // fetch participants to determine the other user's name
+        // ✅ Lấy participants, dùng is_online + last_seen để hiển thị trạng thái đúng
         try {
             const pr = await fetch(`${baseUrl}/api/conversations/${convId}/participants`, { credentials: 'include' });
             const parts = await pr.json();
@@ -122,14 +120,25 @@
                     currentOtherId = other.id;
                     currentOtherName = other.username;
                     chatTitle.textContent = other.username || chatTitle.textContent;
+
+                    // ✅ Hiển thị trạng thái dựa theo is_online và last_seen
+                    if (other.is_online) {
+                        chatStatus.textContent = 'Đang hoạt động';
+                    } else if (other.last_seen) {
+                        chatStatus.textContent = 'Hoạt động ' + formatRelative(parseDate(other.last_seen));
+                    } else {
+                        chatStatus.textContent = 'Chưa hoạt động';
+                    }
                 } else {
                     currentOtherId = null;
                     currentOtherName = null;
                     chatTitle.textContent = title || chatTitle.textContent;
+                    chatStatus.textContent = 'Đã kết nối';
                 }
             }
         } catch (err) {
-            currentOtherId = null; currentOtherName = null;
+            currentOtherId = null;
+            currentOtherName = null;
         }
     }
 
@@ -142,9 +151,7 @@
             messagesEl.appendChild(p);
             return;
         }
-        msgs.forEach(m => {
-            appendMessage(m);
-        });
+        msgs.forEach(m => appendMessage(m));
     }
 
     function showNoConversationPlaceholder() {
@@ -155,30 +162,29 @@
         messagesEl.appendChild(p);
         chatTitle.textContent = 'Chưa có cuộc trò chuyện được chọn';
         chatStatus.textContent = '—';
-        // disable input bar until a conversation is opened
         if (messageInput) messageInput.disabled = true;
         if (sendBtn) sendBtn.disabled = true;
         if (attachBtn) attachBtn.disabled = true;
         if (emojiBtn) emojiBtn.disabled = true;
         if (convMenuBtn) convMenuBtn.disabled = true;
-        currentOtherId = null; currentOtherName = null;
+        currentOtherId = null;
+        currentOtherName = null;
     }
 
     function appendMessage(m) {
-        // normalize fields (socket payloads may use camelCase or snake_case)
         const senderId = m.sender_id || m.senderId || m.sender;
         const text = m.text || m.message_text || m.messageText || '';
-        const created = m.created_at || m.createdAt || new Date().toISOString();
+        const created = m.created_at || m.createdAt || new Date();
         const seen = m.seen || m.is_read || false;
 
         const el = document.createElement('div');
         el.className = 'msg ' + (senderId === currentUser.id ? 'me' : '');
         el.dataset.id = m.id;
-        // build inner HTML with optional image
+
         const displayName = (senderId === currentUser.id) ? 'Bạn' : (currentOtherName || chatTitle.textContent || 'Người khác');
-        let inner = `<div class="meta"><strong>${escapeHtml(displayName)}</strong> · <span class="small">${new Date(created).toLocaleTimeString()}</span></div>`;
+        let inner = `<div class="meta"><strong>${escapeHtml(displayName)}</strong> · <span class="small">${parseDate(created).toLocaleTimeString()}</span></div>`;
         if (text) inner += `<div class="text">${escapeHtml(text)}</div>`;
-        // image fields may be image_url or imageUrl
+
         const imageUrl = m.image_url || m.imageUrl || m.image || null;
         if (imageUrl) {
             inner += `<img src="${imageUrl}" class="inline-image" alt="img" />`;
@@ -188,15 +194,12 @@
         el.addEventListener('contextmenu', (e) => { e.preventDefault(); showMessageOptions(m, el); });
         messagesEl.appendChild(el);
 
-        // add click to open image in new tab
         if (imageUrl) {
             const imgEl = el.querySelector('img.inline-image');
             if (imgEl) imgEl.addEventListener('click', () => {
-                // open modal and show image at ~2/3 viewport width
                 if (imageModal && imageModalImg) {
                     imageModal.style.display = 'flex';
                     imageModalImg.src = imageUrl;
-                    // prevent background scroll
                     document.body.style.overflow = 'hidden';
                 } else {
                     window.open(imageUrl, '_blank');
@@ -206,22 +209,16 @@
     }
 
     function onIncomingMessage(msg) {
-        // normalize conversation id which might be snake_case or camelCase
         const convId = msg.conversation_id || msg.conversationId || msg.convId || null;
         const senderId = msg.sender_id || msg.senderId || msg.sender || null;
 
-        // If it's part of current conv, show; otherwise show badge by reloading conv list
         if (currentConv && convId && convId === currentConv) {
             appendMessage(msg);
             autoScroll();
-            // send read receipt after short delay
             setTimeout(() => socket.emit('read_message', { messageId: msg.id, senderId: senderId, receiverId: currentUser.id }), 700);
         } else if (!currentConv && !convId) {
-            // We have no conversation selected and server sent a message without conv id.
-            // Do not append it into the UI because the user should explicitly pick a conversation first.
             console.log('Ignoring incoming direct message because no conversation is selected.', msg);
         } else {
-            // reload conversations to update badges
             loadConversations();
             console.log('Tin nhắn mới từ hội thoại', convId || '(direct)');
         }
@@ -235,28 +232,35 @@
     function onMessageSeen(info) {
         const el = messagesEl.querySelector(`[data-id="${info.messageId}"]`);
         if (el) {
-            const s = document.createElement('div'); s.className = 'small'; s.textContent = 'Đã xem'; el.appendChild(s);
+            const s = document.createElement('div');
+            s.className = 'small';
+            s.textContent = 'Đã xem';
+            el.appendChild(s);
         }
     }
 
     function onReaction(data) {
-        // show reaction inline (simple)
         const el = messagesEl.querySelector(`[data-id="${data.messageId}"]`);
-        if (el) { const r = document.createElement('div'); r.className = 'small'; r.textContent = '❤ ' + data.emoji; el.appendChild(r); }
+        if (el) {
+            const r = document.createElement('div');
+            r.className = 'small';
+            r.textContent = '❤ ' + data.emoji;
+            el.appendChild(r);
+        }
     }
 
     sendBtn.addEventListener('click', (e) => { e.preventDefault(); sendMessage(); });
     messageInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') sendMessage(); });
     attachBtn.addEventListener('click', () => imageInput.click());
     imageInput.addEventListener('change', async (e) => {
-        const file = e.target.files[0]; if (!file) return;
+        const file = e.target.files[0];
+        if (!file) return;
         try {
             const fd = new FormData();
             fd.append('image', file);
             const up = await fetch(`${baseUrl}/api/upload-image`, { method: 'POST', credentials: 'include', body: fd });
             const data = await up.json();
             if (data && data.url) {
-                // send message with imageUrl (relative URL)
                 sendMessage(data.url);
             } else {
                 alert('Không upload được ảnh');
@@ -267,7 +271,7 @@
         }
     });
 
-    // Inline emoji picker (local) - simple grid to avoid CDN/library issues
+    // Emoji panel
     const emojiList = ['😊', '😂', '😍', '😅', '👍', '🙏', '🔥', '🥰', '😭', '😉', '😎', '🤔', '😴', '😡', '🎉', '🙌', '🤝', '🤩', '😬', '🤗'];
     let emojiPanel = null;
 
@@ -306,7 +310,6 @@
 
         document.body.appendChild(emojiPanel);
 
-        // Click outside to close
         document.addEventListener('click', (ev) => {
             if (!emojiPanel) return;
             if (ev.target === emojiBtn || emojiBtn.contains(ev.target) || emojiPanel.contains(ev.target)) return;
@@ -319,7 +322,6 @@
         const rect = emojiBtn.getBoundingClientRect();
         const panelRect = emojiPanel.getBoundingClientRect();
         let left = rect.left;
-        // keep inside viewport
         if (left + panelRect.width > window.innerWidth) left = window.innerWidth - panelRect.width - 8;
         let top = rect.top - panelRect.height - 8;
         if (top < 8) top = rect.bottom + 8;
@@ -331,7 +333,6 @@
         if (!emojiPanel || emojiPanel.style.display === 'none') {
             createEmojiPanel();
             emojiPanel.style.display = 'grid';
-            // allow layout then position
             requestAnimationFrame(positionPanel);
         } else {
             hideEmojiPanel();
@@ -342,7 +343,7 @@
 
     emojiBtn.addEventListener('click', (e) => { e.stopPropagation(); toggleEmojiPanel(); });
 
-    // Conversation header menu handlers
+    // Conversation menu
     if (convMenuBtn) {
         convMenuBtn.addEventListener('click', (e) => {
             e.stopPropagation();
@@ -384,7 +385,7 @@
         });
     }
 
-    // Modal close handlers
+    // Image modal
     function closeImageModal() {
         if (imageModal && imageModalImg) {
             imageModal.style.display = 'none';
@@ -396,10 +397,12 @@
     if (imageModal) imageModal.addEventListener('click', (ev) => { if (ev.target === imageModal) closeImageModal(); });
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeImageModal(); });
 
+    // Search
     searchConvs.addEventListener('input', (e) => {
         const q = e.target.value.toLowerCase();
         Array.from(conversationsEl.children).forEach(el => {
-            const text = el.textContent.toLowerCase(); el.style.display = text.includes(q) ? 'flex' : 'none';
+            const text = el.textContent.toLowerCase();
+            el.style.display = text.includes(q) ? 'flex' : 'none';
         });
     });
 
@@ -413,15 +416,25 @@
         if (!currentConv) return alert('Chưa chọn hội thoại');
         const text = messageInput.value.trim();
         if (!text && !overrideImage) return;
-        const payload = { senderId: currentUser.id, receiverId: null, text: text, replyToId: null, imageUrl: overrideImage || null, conversationId: currentConv };
+        const payload = {
+            senderId: currentUser.id,
+            receiverId: null,
+            text: text,
+            replyToId: null,
+            imageUrl: overrideImage || null,
+            conversationId: currentConv
+        };
         socket.emit('send_message', payload);
         messageInput.value = '';
     }
 
     function autoScroll() { messagesEl.scrollTop = messagesEl.scrollHeight; }
 
+    // ✅ formatRelative hiển thị thời gian offline chính xác
     function formatRelative(dt) {
+        if (!dt || isNaN(dt.getTime())) return 'không rõ';
         const diff = Math.floor((Date.now() - dt.getTime()) / 1000);
+        if (diff < 0) return 'vừa xong';
         if (diff < 60) return `${diff} giây trước`;
         const mins = Math.floor(diff / 60);
         if (mins < 60) return `${mins} phút trước`;
@@ -431,12 +444,23 @@
         return `${days} ngày trước`;
     }
 
-    function escapeHtml(s) { return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": "&#39;" }[c])); }
+    function escapeHtml(s) {
+        return String(s).replace(/[&<>"']/g, (c) => ({
+            '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": "&#39;"
+        }[c]));
+    }
 
     function showMessageOptions(m, el) {
         const r = confirm('Trích dẫn tin nhắn này? (OK để reply)');
-        if (r) { messageInput.value = '↪ "' + (m.text || '') + '" '; messageInput.focus(); }
+        if (r) {
+            messageInput.value = '↪ "' + (m.text || '') + '" ';
+            messageInput.focus();
+        }
     }
-
+    // ✅ Fix múi giờ: bỏ Z để JS không cộng thêm 7 tiếng
+    function parseDate(str) {
+        if (!str) return new Date();
+        return new Date(String(str).replace('Z', '').replace(/\+\d{2}:\d{2}$/, ''));
+    }
     init();
 })();

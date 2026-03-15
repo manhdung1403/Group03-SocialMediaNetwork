@@ -1,6 +1,6 @@
 const express = require('express');
-const http = require('http'); // Thêm để chạy Socket.io
-const { Server } = require('socket.io'); // Thêm để chạy Socket.io
+const http = require('http');
+const { Server } = require('socket.io');
 const sql = require('mssql');
 const cors = require('cors');
 const session = require('express-session');
@@ -10,9 +10,8 @@ const multer = require('multer');
 const fs = require('fs');
 
 const app = express();
-const server = http.createServer(app); // Tạo server để dùng chung cho Express và Socket.io
+const server = http.createServer(app);
 
-// Khởi tạo Socket.io
 const io = new Server(server, {
     cors: {
         origin: "http://localhost:3000",
@@ -28,7 +27,6 @@ app.use(cors({
 }));
 app.use(express.urlencoded({ extended: true }));
 
-// Cấu hình session
 const sessionMiddleware = session({
     secret: 'your-secret-key-change-this-in-production',
     resave: false,
@@ -41,19 +39,15 @@ const sessionMiddleware = session({
 });
 app.use(sessionMiddleware);
 
-// Chia sẻ session cho Socket.io (nếu cần dùng dữ liệu session trong chat)
 io.use((socket, next) => {
     sessionMiddleware(socket.request, {}, next);
 });
 
-// Serve static files
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Ensure uploads folder exists
 const uploadsDir = path.join(__dirname, 'public', 'uploads');
 if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
 
-// Configure multer for uploads
 const storage = multer.diskStorage({
     destination: function (req, file, cb) {
         cb(null, uploadsDir);
@@ -66,7 +60,6 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage, limits: { fileSize: 5 * 1024 * 1024 } });
 
-// Image upload endpoint
 app.post('/api/upload-image', requireAuth, upload.single('image'), (req, res) => {
     try {
         if (!req.file) return res.status(400).json({ error: 'No file' });
@@ -78,7 +71,6 @@ app.post('/api/upload-image', requireAuth, upload.single('image'), (req, res) =>
     }
 });
 
-// Cấu hình SQL Server
 const dbConfig = {
     user: 'sa',
     password: '0944364247',
@@ -90,29 +82,23 @@ const dbConfig = {
     }
 };
 
-// --- LOGIC REAL-TIME CHAT (SOCKET.IO) ---
-const onlineUsers = new Map(); // Map lưu trữ userId => socketId
+// --- SOCKET.IO REAL-TIME CHAT ---
+const onlineUsers = new Map(); // userId => socketId
 
 io.on('connection', (socket) => {
     console.log(`⚡ Kết nối mới: ${socket.id}`);
 
-    // Đăng ký user online
     socket.on('register', (userId) => {
         socket.userId = userId;
         onlineUsers.set(String(userId), socket.id);
         io.emit('user_status', { userId, status: 'online', lastSeen: null });
     });
 
-    // Xử lý gửi tin nhắn
     socket.on('send_message', async (data) => {
-        // data may include: senderId, receiverId, text, replyToId, conversationId, imageUrl
         const { senderId, receiverId, text, replyToId, conversationId, imageUrl } = data;
         try {
-            console.log('send_message payload:', { senderId, receiverId, text, replyToId, conversationId, hasImage: !!imageUrl });
-            // Avoid passing large data-URI strings into VARCHAR DB param (causes validation errors)
             const imgParam = (imageUrl && typeof imageUrl === 'string' && imageUrl.startsWith('data:')) ? null : imageUrl;
             let pool = await sql.connect(dbConfig);
-            // Insert message and associate with conversation if provided
             const result = await pool.request()
                 .input('senderId', sql.Int, senderId)
                 .input('receiverId', sql.Int, receiverId || null)
@@ -128,17 +114,14 @@ io.on('connection', (socket) => {
 
             const savedMsg = { ...data, id: result.recordset[0].id, created_at: result.recordset[0].created_at };
 
-            // Update conversation last_message/last_updated when conversationId present
             if (conversationId) {
                 await pool.request()
                     .input('convId', sql.Int, conversationId)
                     .input('text', sql.NVarChar, text || null)
                     .query(`UPDATE Conversations SET last_message = @text, last_updated = GETDATE() WHERE id = @convId`);
 
-                // Emit to conversation room so all participants see it
                 io.to(`conversation_${conversationId}`).emit('receive_message', savedMsg);
             } else {
-                // legacy: direct message, emit to receiver socket if online
                 const receiverSocketId = onlineUsers.get(String(receiverId));
                 if (receiverSocketId) io.to(receiverSocketId).emit('receive_message', savedMsg);
             }
@@ -149,24 +132,19 @@ io.on('connection', (socket) => {
         }
     });
 
-    // Đánh dấu đã đọc
     socket.on('read_message', async (data) => {
-        // data: { messageId, senderId, receiverId }
         try {
             let pool = await sql.connect(dbConfig);
             await pool.request()
                 .input('messageId', sql.Int, data.messageId)
                 .query(`UPDATE Messages SET seen = 1, seen_at = GETDATE() WHERE id = @messageId`);
 
-            // notify sender
             const senderSocket = onlineUsers.get(String(data.senderId));
             if (senderSocket) io.to(senderSocket).emit('message_seen', { messageId: data.messageId, by: data.receiverId });
         } catch (err) { console.error(err); }
     });
 
-    // Reaction (emoji)
     socket.on('reaction', async (data) => {
-        // data: { messageId, emoji }
         try {
             let pool = await sql.connect(dbConfig);
             await pool.request()
@@ -177,17 +155,25 @@ io.on('connection', (socket) => {
         } catch (err) { console.error(err); }
     });
 
-    socket.on('disconnect', () => {
+    // ✅ Lưu last_seen vào DB khi user disconnect
+    socket.on('disconnect', async () => {
         if (socket.userId) {
             onlineUsers.delete(String(socket.userId));
-            io.emit('user_status', { userId: socket.userId, status: 'offline', lastSeen: new Date().toISOString() });
+            const lastSeenTime = new Date().toISOString();
+            try {
+                let pool = await sql.connect(dbConfig);
+                await pool.request()
+                    .input('uid', sql.Int, socket.userId)
+                    .query(`UPDATE Users SET last_seen = GETDATE() WHERE id = @uid`);
+            } catch (e) {
+                console.error('Lỗi cập nhật last_seen:', e);
+            }
+            io.emit('user_status', { userId: socket.userId, status: 'offline', lastSeen: lastSeenTime });
         }
     });
 });
 
-// --- CÁC API NEWSFEED HIỆN CÓ CỦA BẠN ---
-
-// Middleware kiểm tra đăng nhập
+// --- MIDDLEWARE ---
 function requireAuth(req, res, next) {
     if (req.session && req.session.userId) {
         return next();
@@ -196,7 +182,7 @@ function requireAuth(req, res, next) {
     }
 }
 
-// API đăng ký
+// --- AUTH APIs ---
 app.post('/api/register', async (req, res) => {
     try {
         const { username, email, password, dob } = req.body;
@@ -230,7 +216,6 @@ app.post('/api/register', async (req, res) => {
     }
 });
 
-// API đăng nhập
 app.post('/api/login', async (req, res) => {
     try {
         const { email, password } = req.body;
@@ -252,12 +237,19 @@ app.post('/api/login', async (req, res) => {
     }
 });
 
-// API đăng xuất
-app.post('/api/logout', (req, res) => {
+app.post('/api/logout', async (req, res) => {
+    const userId = req.session && req.session.userId;
+    if (userId) {
+        try {
+            let pool = await sql.connect(dbConfig);
+            await pool.request()
+                .input('uid', sql.Int, userId)
+                .query(`UPDATE Users SET last_seen = GETDATE() WHERE id = @uid`);
+        } catch (e) { console.error('logout last_seen error', e); }
+    }
     req.session.destroy(() => res.json({ success: true }));
 });
 
-// API kiểm tra trạng thái
 app.get('/api/auth/status', (req, res) => {
     if (req.session && req.session.userId) {
         res.json({ loggedIn: true, user: { id: req.session.userId, username: req.session.username } });
@@ -266,7 +258,7 @@ app.get('/api/auth/status', (req, res) => {
     }
 });
 
-// API lấy posts
+// --- POST APIs ---
 app.get('/api/posts', requireAuth, async (req, res) => {
     try {
         let pool = await sql.connect(dbConfig);
@@ -281,7 +273,7 @@ app.get('/api/posts', requireAuth, async (req, res) => {
     }
 });
 
-// API lấy tin nhắn chat (Mới thêm)
+// --- CHAT APIs ---
 app.get('/api/messages/:receiverId', requireAuth, async (req, res) => {
     try {
         const senderId = req.session.userId;
@@ -300,7 +292,6 @@ app.get('/api/messages/:receiverId', requireAuth, async (req, res) => {
     }
 });
 
-// API lấy danh sách conversation của user
 app.get('/api/conversations', requireAuth, async (req, res) => {
     try {
         const userId = req.session.userId;
@@ -315,7 +306,6 @@ app.get('/api/conversations', requireAuth, async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// API lấy messages theo conversation id
 app.get('/api/conversations/:id/messages', requireAuth, async (req, res) => {
     try {
         const convId = parseInt(req.params.id, 10);
@@ -330,18 +320,14 @@ app.get('/api/conversations/:id/messages', requireAuth, async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// Tạo conversation mới
 app.post('/api/conversations', requireAuth, async (req, res) => {
     try {
-        const { participantIds, title } = req.body; // participantIds array
+        const { participantIds, title } = req.body;
         let pool = await sql.connect(dbConfig);
-        // Prevent creating duplicate conversations with the same participant set.
         const users = Array.from(new Set([req.session.userId].concat(participantIds || []))).map(x => parseInt(x, 10));
         const count = users.length;
-        // Build comma-separated list for IN() — safe because values are ints from session/body and we cast above.
         const idsList = users.join(',');
 
-        // Find existing conversation that contains exactly these users
         const checkQuery = `
             SELECT cp.conversation_id
             FROM ConversationParticipants cp
@@ -356,7 +342,6 @@ app.post('/api/conversations', requireAuth, async (req, res) => {
             return res.json({ success: true, id: convId, existed: true });
         }
 
-        // Create new conversation
         const insert = await pool.request()
             .input('title', sql.NVarChar, title || null)
             .query(`INSERT INTO Conversations (title) OUTPUT INSERTED.id VALUES (@title)`);
@@ -371,19 +356,7 @@ app.post('/api/conversations', requireAuth, async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// Chạy Server
-const PORT = 3000;
-server.listen(PORT, async () => {
-    console.log(`Server NewsFeed + Chat đang chạy tại http://localhost:${PORT}`);
-    try {
-        let pool = await sql.connect(dbConfig);
-        if (pool.connected) console.log("✅ Kết nối SQL Server thành công.");
-    } catch (err) {
-        console.error("❌ Lỗi Database:", err.message);
-    }
-});
-
-// Lấy danh sách users (không gồm chính user) và trạng thái follow
+// --- USER APIs ---
 app.get('/api/users', requireAuth, async (req, res) => {
     try {
         const me = req.session.userId;
@@ -399,7 +372,6 @@ app.get('/api/users', requireAuth, async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// Follow user
 app.post('/api/follow', requireAuth, async (req, res) => {
     try {
         const me = req.session.userId;
@@ -415,7 +387,6 @@ app.post('/api/follow', requireAuth, async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// Unfollow
 app.post('/api/unfollow', requireAuth, async (req, res) => {
     try {
         const me = req.session.userId;
@@ -430,7 +401,7 @@ app.post('/api/unfollow', requireAuth, async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// Lấy participants (id và username) của conversation
+// ✅ Trả thêm last_seen + is_online để client hiển thị trạng thái chính xác
 app.get('/api/conversations/:id/participants', requireAuth, async (req, res) => {
     try {
         const convId = parseInt(req.params.id, 10);
@@ -438,42 +409,55 @@ app.get('/api/conversations/:id/participants', requireAuth, async (req, res) => 
         const result = await pool.request()
             .input('convId', sql.Int, convId)
             .query(`
-                SELECT u.id, u.username
+                SELECT u.id, u.username, u.last_seen
                 FROM ConversationParticipants cp
                 JOIN Users u ON cp.user_id = u.id
                 WHERE cp.conversation_id = @convId
             `);
-        res.json(result.recordset);
+        // Gắn thêm is_online dựa vào onlineUsers map (không cần query DB)
+        const rows = result.recordset.map(u => ({
+            ...u,
+            is_online: onlineUsers.has(String(u.id))
+        }));
+        res.json(rows);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });
 
-// Xóa conversation (và các messages + participants liên quan)
 app.delete('/api/conversations/:id', requireAuth, async (req, res) => {
     try {
         const convId = parseInt(req.params.id, 10);
         const userId = req.session.userId;
         let pool = await sql.connect(dbConfig);
 
-        // Kiểm tra user có tham gia conversation này không
         const check = await pool.request()
             .input('convId', sql.Int, convId)
             .input('userId', sql.Int, userId)
             .query(`SELECT 1 FROM ConversationParticipants WHERE conversation_id = @convId AND user_id = @userId`);
         if (!check.recordset || check.recordset.length === 0) return res.status(403).json({ error: 'Không có quyền xóa' });
 
-        // Xóa messages, participants, rồi conversation (theo thứ tự để tránh vi phạm FK)
         await pool.request().input('convId', sql.Int, convId).query(`DELETE FROM Messages WHERE conversation_id = @convId`);
         await pool.request().input('convId', sql.Int, convId).query(`DELETE FROM ConversationParticipants WHERE conversation_id = @convId`);
         await pool.request().input('convId', sql.Int, convId).query(`DELETE FROM Conversations WHERE id = @convId`);
 
-        // Thông báo realtime tới những client trong room (nếu có)
         io.to(`conversation_${convId}`).emit('conversation_deleted', { conversationId: convId });
 
         res.json({ success: true });
     } catch (err) {
         console.error('Delete conversation error', err);
         res.status(500).json({ error: err.message });
+    }
+});
+
+// --- START SERVER ---
+const PORT = 3000;
+server.listen(PORT, async () => {
+    console.log(`Server NewsFeed + Chat đang chạy tại http://localhost:${PORT}`);
+    try {
+        let pool = await sql.connect(dbConfig);
+        if (pool.connected) console.log("✅ Kết nối SQL Server thành công.");
+    } catch (err) {
+        console.error("❌ Lỗi Database:", err.message);
     }
 });
