@@ -31,57 +31,7 @@ CREATE TABLE Follows
     following_id INT FOREIGN KEY REFERENCES Users(id),
     UNIQUE(follower_id, following_id)
 );
-ALTER TABLE Posts
-ALTER COLUMN image_url VARCHAR(MAX) NOT NULL;
-GO
 
-ALTER TABLE Users 
-DROP CONSTRAINT DF__Users__avatar__38996AB5;
-GO
 
-ALTER TABLE Users
-ALTER COLUMN avatar NVARCHAR(MAX);
-GO
 
-ALTER TABLE Users 
-ADD CONSTRAINT DF_Users_Avatar_New
-DEFAULT 'https://sp-ao.shortpixel.ai/client/to_webp,q_glossy,ret_img,w_1080,h_1080/https://hanoidep.vn/wp-content/uploads/2025/11/avatar-don-gian-3.webp' 
-FOR avatar;
-GO
 
--- Bảng Likes: cộng dồn tim bài viết giữa các user
-CREATE TABLE Likes
-(
-    id INT IDENTITY(1,1) PRIMARY KEY,
-    post_id INT NOT NULL,
-    user_id INT NOT NULL,
-    CONSTRAINT FK_Likes_Posts FOREIGN KEY (post_id) REFERENCES Posts(id),
-    CONSTRAINT FK_Likes_Users FOREIGN KEY (user_id) REFERENCES Users(id),
-    CONSTRAINT UQ_Likes_Post_User UNIQUE (post_id, user_id)
-);
-GO
-
--- Bảng Comments: bình luận trên bài viết
-CREATE TABLE Comments
-(
-    id INT IDENTITY(1,1) PRIMARY KEY,
-    post_id INT NOT NULL,
-    user_id INT NOT NULL,
-    content NVARCHAR(MAX) NOT NULL,
-    created_at DATETIME NOT NULL DEFAULT GETDATE(),
-    CONSTRAINT FK_Comments_Posts FOREIGN KEY (post_id) REFERENCES Posts(id),
-    CONSTRAINT FK_Comments_Users FOREIGN KEY (user_id) REFERENCES Users(id)
-);
-GO
-
--- Bảng CommentLikes: cộng dồn tim trên bình luận giữa các user
-CREATE TABLE CommentLikes
-(
-    id INT IDENTITY(1,1) PRIMARY KEY,
-    comment_id INT NOT NULL,
-    user_id INT NOT NULL,
-    CONSTRAINT FK_CommentLikes_Comments FOREIGN KEY (comment_id) REFERENCES Comments(id),
-    CONSTRAINT FK_CommentLikes_Users FOREIGN KEY (user_id) REFERENCES Users(id),
-    CONSTRAINT UQ_CommentLikes_Comment_User UNIQUE (comment_id, user_id)
-);
-GO
