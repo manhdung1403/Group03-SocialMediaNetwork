@@ -70,6 +70,7 @@ const dbConfig = {
     user: 'sa',
     password: '0944364247',
     server: 'localhost',
+    port: 64957,
     database: 'newsFeedDb',
     options: {
         encrypt: false,
@@ -293,6 +294,135 @@ app.get('/api/auth/status', (req, res) => {
 });
 
 // ============================================================
+// USER PROFILE APIs
+// ============================================================
+app.get('/api/user/profile', requireAuth, async (req, res) => {
+    try {
+        let pool = await sql.connect(dbConfig);
+        let result = await pool.request()
+            .input('userId', sql.Int, req.session.userId)
+            .query(`SELECT id, username, email, avatar, bio, dob, created_at FROM Users WHERE id = @userId`);
+
+        if (result.recordset.length === 0) {
+            return res.status(404).json({ error: 'Không tìm thấy user' });
+        }
+
+        const user = result.recordset[0];
+        res.json(user);
+    } catch (err) {
+        console.error('Lỗi lấy profile:', err);
+        res.status(500).json({ error: 'Lỗi server: ' + err.message });
+    }
+});
+
+// DEBUG: kiểm tra dữ liệu posts
+app.get('/api/posts/debug', requireAuth, async (req, res) => {
+    try {
+        let pool = await sql.connect(dbConfig);
+        let result = await pool.request()
+            .input('currentUserId', sql.Int, req.session.userId)
+            .query(`
+                SELECT 
+                    p.id, 
+                    p.image_url, 
+                    p.caption, 
+                    p.created_at, 
+                    u.id AS user_id, 
+                    u.username,
+                    ISNULL(lc.like_count, 0) AS like_count,
+                    ISNULL(cc.comment_count, 0) AS comment_count,
+                    CASE WHEN ul.user_id IS NULL THEN 0 ELSE 1 END AS liked_by_current_user
+                FROM Posts p
+                LEFT JOIN Users u ON p.user_id = u.id
+                LEFT JOIN (
+                    SELECT post_id, COUNT(*) AS like_count
+                    FROM Likes
+                    GROUP BY post_id
+                ) lc ON lc.post_id = p.id
+                LEFT JOIN (
+                    SELECT post_id, COUNT(*) AS comment_count
+                    FROM Comments
+                    GROUP BY post_id
+                ) cc ON cc.post_id = p.id
+                LEFT JOIN Likes ul 
+                    ON ul.post_id = p.id AND ul.user_id = @currentUserId
+                ORDER BY p.created_at DESC
+            `);
+        console.log('DEBUG POSTS:', JSON.stringify(result.recordset, null, 2));
+        res.json(result.recordset);
+    } catch (err) {
+        console.error('Debug error:', err);
+        res.status(500).json({ error: 'Lỗi server: ' + err.message });
+    }
+});
+
+app.put('/api/user/profile', requireAuth, async (req, res) => {
+    try {
+        const { username, email, bio, dob, avatar } = req.body;
+        const userId = req.session.userId;
+
+        if (!username || !email) {
+            return res.status(400).json({ error: 'Username và Email không được để trống' });
+        }
+
+        // Validate date of birth
+        if (dob && !/^\d{4}-\d{2}-\d{2}$/.test(dob)) {
+            return res.status(400).json({ error: 'Định dạng ngày sinh không hợp lệ' });
+        }
+
+        // Check if email is already used by another user
+        let pool = await sql.connect(dbConfig);
+        let emailCheck = await pool.request()
+            .input('email', sql.VarChar, email)
+            .input('userId', sql.Int, userId)
+            .query(`SELECT id FROM Users WHERE email = @email AND id <> @userId`);
+
+        if (emailCheck.recordset.length > 0) {
+            return res.status(400).json({ error: 'Email đã được sử dụng' });
+        }
+
+        // Update user profile
+        let updateQuery = `UPDATE Users SET username = @username, email = @email, bio = @bio`;
+        let request = pool.request()
+            .input('username', sql.NVarChar, username)
+            .input('email', sql.VarChar, email)
+            .input('bio', sql.NVarChar(sql.MAX), bio || null)
+            .input('userId', sql.Int, userId);
+
+        if (dob) {
+            updateQuery += `, dob = @dob`;
+            request = request.input('dob', sql.Date, dob);
+        }
+
+        if (avatar) {
+            updateQuery += `, avatar = @avatar`;
+            request = request.input('avatar', sql.NVarChar(sql.MAX), avatar);
+        }
+
+        updateQuery += ` WHERE id = @userId`;
+
+        await request.query(updateQuery);
+
+        // Update session
+        req.session.username = username;
+
+        // Fetch updated user
+        let updated = await pool.request()
+            .input('userId', sql.Int, userId)
+            .query(`SELECT id, username, email, avatar, bio, dob FROM Users WHERE id = @userId`);
+
+        res.json({
+            success: true,
+            message: 'Cập nhật profile thành công',
+            user: updated.recordset[0]
+        });
+    } catch (err) {
+        console.error('Lỗi cập nhật profile:', err);
+        res.status(500).json({ error: 'Lỗi server: ' + err.message });
+    }
+});
+
+// ============================================================
 // POST APIs
 // ============================================================
 app.get('/api/posts', requireAuth, async (req, res) => {
@@ -309,6 +439,7 @@ app.get('/api/posts', requireAuth, async (req, res) => {
                     u.id AS user_id, 
                     u.username,
                     ISNULL(lc.like_count, 0) AS like_count,
+                    ISNULL(cc.comment_count, 0) AS comment_count,
                     CASE WHEN ul.user_id IS NULL THEN 0 ELSE 1 END AS liked_by_current_user
                 FROM Posts p
                 LEFT JOIN Users u ON p.user_id = u.id
@@ -317,6 +448,11 @@ app.get('/api/posts', requireAuth, async (req, res) => {
                     FROM Likes
                     GROUP BY post_id
                 ) lc ON lc.post_id = p.id
+                LEFT JOIN (
+                    SELECT post_id, COUNT(*) AS comment_count
+                    FROM Comments
+                    GROUP BY post_id
+                ) cc ON cc.post_id = p.id
                 LEFT JOIN Likes ul 
                     ON ul.post_id = p.id AND ul.user_id = @currentUserId
                 ORDER BY p.created_at DESC

@@ -1,0 +1,405 @@
+<!doctype html>
+<html lang="vi">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Chỉnh sửa trang cá nhân | Instagram Style</title>
+    <style>
+        /* Reset & Base */
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #fafafa;
+            margin: 0;
+            color: #262626;
+        }
+
+        .container {
+            max-width: 500px;
+            margin: 40px auto;
+            padding: 20px;
+            background: white;
+            border: 1px solid #dbdbdb;
+            border-radius: 8px;
+        }
+
+        h1 {
+            text-align: center;
+            font-size: 24px;
+            margin-bottom: 30px;
+            font-weight: 300;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            font-weight: 600;
+            font-size: 14px;
+            margin-bottom: 8px;
+            color: #262626;
+        }
+
+        input[type="text"],
+        input[type="email"],
+        input[type="date"],
+        input[type="password"],
+        textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #dbdbdb;
+            border-radius: 4px;
+            font-size: 14px;
+            font-family: inherit;
+            box-sizing: border-box;
+            background-color: #fafafa;
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        input:focus,
+        textarea:focus {
+            outline: none;
+            border-color: #0095f6;
+            background-color: white;
+        }
+
+        .avatar-section {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .avatar-preview {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            margin: 0 auto 15px;
+            background: #eee;
+            object-fit: cover;
+            border: 1px solid #dbdbdb;
+        }
+
+        .file-input-wrapper {
+            position: relative;
+            display: inline-block;
+            width: 100%;
+        }
+
+        #avatarInput {
+            display: none;
+        }
+
+        .btn-choose-avatar {
+            background: #0095f6;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .btn-choose-avatar:hover {
+            background: #0080d0;
+        }
+
+        .form-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 30px;
+        }
+
+        button {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            border-radius: 4px;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        #saveBtn {
+            background: #0095f6;
+            color: white;
+        }
+
+        #saveBtn:hover:not(:disabled) {
+            background: #0080d0;
+        }
+
+        #cancelBtn {
+            background: transparent;
+            border: 1px solid #dbdbdb;
+            color: #262626;
+        }
+
+        #cancelBtn:hover {
+            background: #f0f0f0;
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .message {
+            padding: 12px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .message.success {
+            background: #e8f5e9;
+            color: #2e7d32;
+            border: 1px solid #c8e6c9;
+            display: block;
+        }
+
+        .message.error {
+            background: #ffebee;
+            color: #c62828;
+            border: 1px solid #ffcdd2;
+            display: block;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+        }
+
+        /* Mobile responsive */
+        @media (max-width: 600px) {
+            .container {
+                margin: 20px auto;
+                border: none;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>Chỉnh sửa trang cá nhân</h1>
+
+        <div id="message" class="message"></div>
+
+        <div id="loadingDiv" class="loading">Đang tải...</div>
+
+        <form id="editForm" style="display: none;">
+            <!-- Avatar Section -->
+            <div class="avatar-section">
+                <img id="avatarPreview" src="" class="avatar-preview" alt="Avatar" />
+                <div class="file-input-wrapper">
+                    <button type="button" class="btn-choose-avatar" id="chooseAvatarBtn">Đổi ảnh đại diện</button>
+                    <input type="file" id="avatarInput" accept="image/*" />
+                </div>
+                <div style="font-size: 12px; color: #999; margin-top: 8px;">Chỉ hỗ trợ ảnh (JPG, PNG, GIF)</div>
+            </div>
+
+            <!-- Form Fields -->
+            <div class="form-group">
+                <label for="username">Tên người dùng</label>
+                <input type="text" id="username" name="username" required />
+            </div>
+
+            <div class="form-group">
+                <label for="email">Email</label>
+                <input type="email" id="email" name="email" required />
+            </div>
+
+            <div class="form-group">
+                <label for="bio">Bio</label>
+                <textarea id="bio" name="bio" placeholder="Hãy giới thiệu về bản thân..."></textarea>
+            </div>
+
+            <div class="form-group">
+                <label for="dob">Ngày sinh</label>
+                <input type="date" id="dob" name="dob" />
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="form-actions">
+                <button type="submit" id="saveBtn">Lưu thay đổi</button>
+                <button type="button" id="cancelBtn">Hủy</button>
+            </div>
+        </form>
+    </div>
+
+    <script>
+        function escapeHtml(str) {
+            if (!str && str !== 0) return '';
+            return String(str).replace(/[&<>\"]/g, c => ({
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;'
+            }[c]));
+        }
+
+        function showMessage(text, type) {
+            const msgDiv = document.getElementById('message');
+            msgDiv.textContent = text;
+            msgDiv.className = `message ${type}`;
+            if (type === 'success') {
+                setTimeout(() => msgDiv.className = 'message', 3000);
+            }
+        }
+
+        let currentUser = null;
+        let hasAvatarChanged = false;
+
+        async function loadProfile() {
+            try {
+                const statusResp = await fetch('/api/auth/status', { credentials: 'include' });
+                if (!statusResp.ok) {
+                    window.location.href = '/user/login.html';
+                    return;
+                }
+                const status = await statusResp.json();
+                if (!status.loggedIn) {
+                    window.location.href = '/user/login.html';
+                    return;
+                }
+
+                const userResp = await fetch(`/api/user/profile`, { credentials: 'include' });
+                if (!userResp.ok) {
+                    showMessage('Lỗi tải thông tin profile', 'error');
+                    return;
+                }
+                const user = await userResp.json();
+                currentUser = user;
+
+                // Populate form
+                document.getElementById('username').value = escapeHtml(user.username || '');
+                document.getElementById('email').value = escapeHtml(user.email || '');
+                document.getElementById('bio').value = escapeHtml(user.bio || '');
+                document.getElementById('avatarPreview').src = user.avatar || 'https://via.placeholder.com/120';
+
+                if (user.dob) {
+                    const dob = new Date(user.dob);
+                    const dateStr = dob.toISOString().split('T')[0];
+                    document.getElementById('dob').value = dateStr;
+                }
+
+                document.getElementById('loadingDiv').style.display = 'none';
+                document.getElementById('editForm').style.display = 'block';
+            } catch (err) {
+                console.error('Error loading profile:', err);
+                showMessage('Lỗi: ' + err.message, 'error');
+            }
+        }
+
+        // File input handling
+        document.getElementById('chooseAvatarBtn').addEventListener('click', (e) => {
+            e.preventDefault();
+            document.getElementById('avatarInput').click();
+        });
+
+        document.getElementById('avatarInput').addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            // Validate file type
+            if (!file.type.startsWith('image/')) {
+                showMessage('Vui lòng chọn file ảnh', 'error');
+                return;
+            }
+
+            // Show preview
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                document.getElementById('avatarPreview').src = event.target.result;
+                hasAvatarChanged = true;
+            };
+            reader.readAsDataURL(file);
+        });
+
+        // Form submission
+        document.getElementById('editForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const saveBtn = document.getElementById('saveBtn');
+            saveBtn.disabled = true;
+
+            try {
+                let avatarUrl = currentUser.avatar; // Default to current avatar
+
+                // Handle avatar upload if changed
+                if (hasAvatarChanged) {
+                    const avatarInput = document.getElementById('avatarInput');
+                    if (avatarInput.files[0]) {
+                        const fileFormData = new FormData();
+                        fileFormData.append('image', avatarInput.files[0]);
+
+                        const uploadResp = await fetch('/api/upload-image', {
+                            method: 'POST',
+                            credentials: 'include',
+                            body: fileFormData
+                        });
+
+                        if (!uploadResp.ok) {
+                            showMessage('Lỗi upload ảnh', 'error');
+                            saveBtn.disabled = false;
+                            return;
+                        }
+
+                        const uploadData = await uploadResp.json();
+                        avatarUrl = uploadData.url;
+                    }
+                }
+
+                const resp = await fetch('/api/user/profile', {
+                    method: 'PUT',
+                    credentials: 'include',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        username: document.getElementById('username').value,
+                        email: document.getElementById('email').value,
+                        bio: document.getElementById('bio').value,
+                        dob: document.getElementById('dob').value,
+                        avatar: avatarUrl
+                    })
+                });
+
+                if (!resp.ok) {
+                    const error = await resp.json();
+                    showMessage('Lỗi: ' + (error.error || 'Không thể cập nhật'), 'error');
+                    saveBtn.disabled = false;
+                    return;
+                }
+
+                showMessage('Cập nhật thành công!', 'success');
+                hasAvatarChanged = false;
+                setTimeout(() => {
+                    window.location.href = '/user/profile.html';
+                }, 1500);
+            } catch (err) {
+                console.error('Error:', err);
+                showMessage('Lỗi: ' + err.message, 'error');
+                saveBtn.disabled = false;
+            }
+        });
+
+        // Cancel button
+        document.getElementById('cancelBtn').addEventListener('click', () => {
+            window.location.href = '/user/profile.html';
+        });
+
+        // Load profile on page load
+        loadProfile();
+    </script>
+</body>
+
+</html>

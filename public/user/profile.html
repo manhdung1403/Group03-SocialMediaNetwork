@@ -1,5 +1,6 @@
 <!doctype html>
 <html lang="vi">
+
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
@@ -85,10 +86,18 @@
             font-weight: 600;
             letter-spacing: 1px;
             padding: 15px 0;
-            border-top: 1px solid #262626; /* Active tab */
+            border-top: 1px solid #dbdbdb;
             display: flex;
             align-items: center;
             gap: 6px;
+            cursor: pointer;
+            color: #999;
+            transition: color 0.2s;
+        }
+
+        .tab-item.active-tab {
+            border-top: 1px solid #262626;
+            color: #262626;
         }
 
         #posts {
@@ -117,12 +126,52 @@
             filter: brightness(0.8);
         }
 
+        .post-overlay {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(to top, rgba(0, 0, 0, 0.7), transparent);
+            padding: 15px;
+            display: flex;
+            justify-content: space-around;
+            color: white;
+            font-size: 14px;
+            font-weight: 600;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .post-item:hover .post-overlay {
+            opacity: 1;
+        }
+
+        .post-stat {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
         /* Mobile responsive */
         @media (max-width: 735px) {
-            #posts { gap: 3px; }
-            .profile-pic { width: 77px; height: 77px; }
-            header { gap: 15px; }
-            .username-row { flex-direction: column; align-items: flex-start; gap: 10px; }
+            #posts {
+                gap: 3px;
+            }
+
+            .profile-pic {
+                width: 77px;
+                height: 77px;
+            }
+
+            header {
+                gap: 15px;
+            }
+
+            .username-row {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 10px;
+            }
         }
     </style>
 </head>
@@ -130,8 +179,8 @@
 <body>
     <div class="container">
         <header>
-            <img src="https://via.placeholder.com/150" class="profile-pic" alt="Profile" />
-            
+            <img id="avatarImg" src="https://via.placeholder.com/150" class="profile-pic" alt="Profile" />
+
             <section class="profile-info">
                 <div class="username-row">
                     <h1 id="displayUsername">...</h1>
@@ -141,12 +190,19 @@
                 <div id="userStats">
                     <span id="postCount"><strong>0</strong> bài viết</span>
                 </div>
+                <div id="userBio" style="margin-top: 15px; color: #262626;">
+                    <p id="bioText" style="margin: 0 0 5px 0;"></p>
+                    <p id="dobText" style="margin: 0; color: #999; font-size: 14px;"></p>
+                </div>
             </section>
         </header>
 
         <div class="tabs">
-            <div class="tab-item">
-                <span>Posts</span>
+            <div class="tab-item active-tab" id="tab-posts">
+                <span>Bài viết</span>
+            </div>
+            <div class="tab-item" id="tab-likes">
+                <span>Bài đã tim</span>
             </div>
         </div>
 
@@ -163,41 +219,123 @@
             return String(str).replace(/[&<>\"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
         }
 
+        let allPosts = [];
+        let currentUser = null;
+        let currentTab = 'posts'; // 'posts' or 'likes'
+
+        function renderPosts(posts) {
+            const postsContainer = document.getElementById('posts');
+
+            if (posts.length === 0) {
+                const message = currentTab === 'posts'
+                    ? 'Chưa có bài viết nào.'
+                    : 'Chưa có bài viết đã tim nào.';
+                postsContainer.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding: 50px;">${message}</div>`;
+                return;
+            }
+
+            postsContainer.innerHTML = posts.map(p => {
+                const imgSrc = p.image_url ? escapeHtml(p.image_url) : 'https://via.placeholder.com/500?text=No+Image';
+                const likeCount = p.like_count || 0;
+                const commentCount = p.comment_count || 0;
+                return `
+                    <div class="post-item">
+                        <img src="${imgSrc}" alt="${escapeHtml(p.caption || '')}" title="${escapeHtml(p.caption || '')}" />
+                        <div class="post-overlay">
+                            <div class="post-stat">
+                                <span>❤️</span>
+                                <span>${likeCount}</span>
+                            </div>
+                            <div class="post-stat">
+                                <span>💬</span>
+                                <span>${commentCount}</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function switchTab(tabName) {
+            currentTab = tabName;
+
+            // Update tab styles
+            document.getElementById('tab-posts').classList.remove('active-tab');
+            document.getElementById('tab-likes').classList.remove('active-tab');
+
+            if (tabName === 'posts') {
+                document.getElementById('tab-posts').classList.add('active-tab');
+                const myPosts = allPosts.filter(p => String(p.user_id) === String(currentUser.id));
+                document.getElementById('postCount').innerHTML = `<strong>${myPosts.length}</strong> bài viết`;
+                renderPosts(myPosts);
+            } else if (tabName === 'likes') {
+                document.getElementById('tab-likes').classList.add('active-tab');
+                const likedPosts = allPosts.filter(p => p.liked_by_current_user === 1);
+                document.getElementById('postCount').innerHTML = `<strong>${likedPosts.length}</strong> bài đã tim`;
+                renderPosts(likedPosts);
+            }
+        }
+
         async function loadProfile() {
             const statusResp = await fetch('/api/auth/status', { credentials: 'include' });
             if (!statusResp.ok) { window.location.href = '/user/login.html'; return; }
             const status = await statusResp.json();
             if (!status.loggedIn) { window.location.href = '/user/login.html'; return; }
 
-            const user = status.user;
-            document.getElementById('displayUsername').textContent = user.username;
-            document.getElementById('editBtn').style.display = 'inline-block';
+            currentUser = status.user;
 
-            const postsResp = await fetch('/api/posts', { credentials: 'include' });
-            const postsContainer = document.getElementById('posts');
-            
-            if (!postsResp.ok) { postsContainer.innerHTML = '<div>Lỗi tải dữ liệu.</div>'; return; }
-            
-            const allPosts = await postsResp.json();
-            const myPosts = allPosts.filter(p => String(p.user_id) === String(user.id));
-            
-            document.getElementById('postCount').innerHTML = `<strong>${myPosts.length}</strong> bài viết`;
-
-            if (myPosts.length === 0) {
-                postsContainer.innerHTML = '<div style="grid-column:1/-1; text-align:center; padding: 50px;">Chưa có bài viết nào.</div>';
+            // Fetch full user profile (including avatar, bio, dob)
+            const profileResp = await fetch('/api/user/profile', { credentials: 'include' });
+            if (!profileResp.ok) {
+                console.error('Error loading profile');
                 return;
             }
+            const userProfile = await profileResp.json();
 
-            postsContainer.innerHTML = myPosts.map(p => {
-                // Nếu không có ảnh, dùng placeholder hoặc màu nền
-                const imgSrc = p.image_url ? escapeHtml(p.image_url) : 'https://via.placeholder.com/500?text=No+Image';
-                return `
-                    <div class="post-item">
-                        <img src="${imgSrc}" alt="${escapeHtml(p.caption || '')}" title="${escapeHtml(p.caption || '')}" />
-                    </div>
-                `;
-            }).join('');
+            // Display user info
+            document.getElementById('displayUsername').textContent = currentUser.username;
+            document.getElementById('avatarImg').src = userProfile.avatar || 'https://via.placeholder.com/150';
+
+            // Display bio
+            const bioText = userProfile.bio ? escapeHtml(userProfile.bio) : '(Chưa có bio)';
+            document.getElementById('bioText').textContent = bioText;
+
+            // Display date of birth
+            if (userProfile.dob) {
+                const dob = new Date(userProfile.dob);
+                const dobStr = dob.toLocaleDateString('vi-VN');
+                document.getElementById('dobText').textContent = `Ngày sinh: ${dobStr}`;
+            } else {
+                document.getElementById('dobText').textContent = 'Ngày sinh: (Chưa cập nhật)';
+            }
+
+            document.getElementById('editBtn').style.display = 'inline-block';
+
+            // Load posts
+            const postsResp = await fetch('/api/posts', { credentials: 'include' });
+            const postsContainer = document.getElementById('posts');
+
+            if (!postsResp.ok) { postsContainer.innerHTML = '<div>Lỗi tải dữ liệu.</div>'; return; }
+
+            allPosts = await postsResp.json();
+            console.log('DEBUG allPosts:', allPosts); // DEBUG
+            const myPosts = allPosts.filter(p => String(p.user_id) === String(currentUser.id));
+
+            document.getElementById('postCount').innerHTML = `<strong>${myPosts.length}</strong> bài viết`;
+            renderPosts(myPosts);
         }
+
+        document.getElementById('editBtn').addEventListener('click', function () {
+            window.location.href = '/user/editprofile.html';
+        });
+
+        document.getElementById('tab-posts').addEventListener('click', function () {
+            switchTab('posts');
+        });
+
+        document.getElementById('tab-likes').addEventListener('click', function () {
+            switchTab('likes');
+        });
 
         document.getElementById('logoutBtn').addEventListener('click', async function () {
             try {
@@ -209,4 +347,5 @@
         loadProfile().catch(console.error);
     </script>
 </body>
+
 </html>
