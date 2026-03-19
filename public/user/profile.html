@@ -185,10 +185,14 @@
                 <div class="username-row">
                     <h1 id="displayUsername">...</h1>
                     <button id="editBtn" style="display:none">Chỉnh sửa trang cá nhân</button>
+                    <button id="createPostBtn" style="display:none">Tạo bài đăng</button>
+                    <button id="followBtn" style="display:none">Theo dõi</button>
                     <button id="logoutBtn">Đăng xuất</button>
                 </div>
                 <div id="userStats">
                     <span id="postCount"><strong>0</strong> bài viết</span>
+                    <span id="followingCount" style="margin-left: 18px;"><strong>0</strong> đang theo dõi</span>
+                    <span id="followersCount" style="margin-left: 18px;"><strong>0</strong> người theo dõi</span>
                 </div>
                 <div id="userBio" style="margin-top: 15px; color: #262626;">
                     <p id="bioText" style="margin: 0 0 5px 0;"></p>
@@ -221,6 +225,7 @@
 
         let allPosts = [];
         let currentUser = null;
+        let profileUserId = null;
         let currentTab = 'posts'; // 'posts' or 'likes'
 
         function renderPosts(posts) {
@@ -284,21 +289,34 @@
 
             currentUser = status.user;
 
-            // Fetch full user profile (including avatar, bio, dob)
-            const profileResp = await fetch('/api/user/profile', { credentials: 'include' });
+            // Determine which profile to show (self vs another user)
+            const urlParams = new URLSearchParams(window.location.search);
+            const targetUserId = urlParams.get('userId');
+            const isOwnProfile = !targetUserId || String(targetUserId) === String(currentUser.id);
+
+            const profileUrl = isOwnProfile ? '/api/user/profile' : `/api/users/${encodeURIComponent(targetUserId)}`;
+
+            const profileResp = await fetch(profileUrl, { credentials: 'include' });
             if (!profileResp.ok) {
                 console.error('Error loading profile');
                 return;
             }
             const userProfile = await profileResp.json();
+            profileUserId = userProfile.id;
 
             // Display user info
-            document.getElementById('displayUsername').textContent = currentUser.username;
+            document.getElementById('displayUsername').textContent = userProfile.username || currentUser.username;
             document.getElementById('avatarImg').src = userProfile.avatar || 'https://via.placeholder.com/150';
 
             // Display bio
             const bioText = userProfile.bio ? escapeHtml(userProfile.bio) : '(Chưa có bio)';
             document.getElementById('bioText').textContent = bioText;
+
+            // Display following/followers counts
+            const followingCount = typeof userProfile.following_count === 'number' ? userProfile.following_count : 0;
+            const followersCount = typeof userProfile.followers_count === 'number' ? userProfile.followers_count : 0;
+            document.getElementById('followingCount').innerHTML = `<strong>${followingCount}</strong> đang theo dõi`;
+            document.getElementById('followersCount').innerHTML = `<strong>${followersCount}</strong> người theo dõi`;
 
             // Display date of birth
             if (userProfile.dob) {
@@ -309,17 +327,31 @@
                 document.getElementById('dobText').textContent = 'Ngày sinh: (Chưa cập nhật)';
             }
 
-            document.getElementById('editBtn').style.display = 'inline-block';
+            // Show/hide action buttons based on whether it's own profile or another's profile
+            const editBtn = document.getElementById('editBtn');
+            const createPostBtn = document.getElementById('createPostBtn');
+            const followBtn = document.getElementById('followBtn');
 
-            // Load posts
+            if (isOwnProfile) {
+                editBtn.style.display = 'inline-block';
+                createPostBtn.style.display = 'inline-block';
+                followBtn.style.display = 'none';
+            } else {
+                editBtn.style.display = 'none';
+                createPostBtn.style.display = 'none';
+                followBtn.style.display = 'inline-block';
+                followBtn.textContent = userProfile.is_following ? 'Đang theo dõi' : 'Theo dõi';
+            }
+
+            // Load posts (only show posts for the profile owner)
             const postsResp = await fetch('/api/posts', { credentials: 'include' });
             const postsContainer = document.getElementById('posts');
 
             if (!postsResp.ok) { postsContainer.innerHTML = '<div>Lỗi tải dữ liệu.</div>'; return; }
 
             allPosts = await postsResp.json();
-            console.log('DEBUG allPosts:', allPosts); // DEBUG
-            const myPosts = allPosts.filter(p => String(p.user_id) === String(currentUser.id));
+            const profileOwnerId = isOwnProfile ? currentUser.id : targetUserId;
+            const myPosts = allPosts.filter(p => String(p.user_id) === String(profileOwnerId));
 
             document.getElementById('postCount').innerHTML = `<strong>${myPosts.length}</strong> bài viết`;
             renderPosts(myPosts);
@@ -327,6 +359,33 @@
 
         document.getElementById('editBtn').addEventListener('click', function () {
             window.location.href = '/user/editprofile.html';
+        });
+
+        document.getElementById('followBtn').addEventListener('click', async function () {
+            const followBtn = document.getElementById('followBtn');
+            const isFollowing = followBtn.textContent.includes('Đang');
+            const endpoint = isFollowing ? 'unfollow' : 'follow';
+
+            followBtn.disabled = true;
+            try {
+                const response = await fetch(`/api/${endpoint}`, {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ userId: profileUserId })
+                });
+
+                if (!response.ok) return;
+                followBtn.textContent = isFollowing ? 'Theo dõi' : 'Đang theo dõi';
+            } catch (err) {
+                console.error('Lỗi khi thay đổi trạng thái theo dõi:', err);
+            } finally {
+                followBtn.disabled = false;
+            }
+        });
+
+        document.getElementById('createPostBtn').addEventListener('click', function () {
+            window.location.href = '/post/addpost.html';
         });
 
         document.getElementById('tab-posts').addEventListener('click', function () {

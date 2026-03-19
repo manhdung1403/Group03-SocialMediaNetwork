@@ -301,7 +301,10 @@ app.get('/api/user/profile', requireAuth, async (req, res) => {
         let pool = await sql.connect(dbConfig);
         let result = await pool.request()
             .input('userId', sql.Int, req.session.userId)
-            .query(`SELECT id, username, email, avatar, bio, dob, created_at FROM Users WHERE id = @userId`);
+            .query(`SELECT id, username, email, avatar, bio, dob, created_at,
+                    (SELECT COUNT(*) FROM Follows WHERE follower_id = @userId) AS following_count,
+                    (SELECT COUNT(*) FROM Follows WHERE following_id = @userId) AS followers_count
+                FROM Users WHERE id = @userId`);
 
         if (result.recordset.length === 0) {
             return res.status(404).json({ error: 'Không tìm thấy user' });
@@ -440,7 +443,8 @@ app.get('/api/posts', requireAuth, async (req, res) => {
                     u.username,
                     ISNULL(lc.like_count, 0) AS like_count,
                     ISNULL(cc.comment_count, 0) AS comment_count,
-                    CASE WHEN ul.user_id IS NULL THEN 0 ELSE 1 END AS liked_by_current_user
+                    CASE WHEN ul.user_id IS NULL THEN 0 ELSE 1 END AS liked_by_current_user,
+                    CASE WHEN f.follower_id IS NULL THEN 0 ELSE 1 END AS is_following
                 FROM Posts p
                 LEFT JOIN Users u ON p.user_id = u.id
                 LEFT JOIN (
@@ -455,6 +459,8 @@ app.get('/api/posts', requireAuth, async (req, res) => {
                 ) cc ON cc.post_id = p.id
                 LEFT JOIN Likes ul 
                     ON ul.post_id = p.id AND ul.user_id = @currentUserId
+                LEFT JOIN Follows f
+                    ON f.following_id = u.id AND f.follower_id = @currentUserId
                 ORDER BY p.created_at DESC
             `);
         res.json(result.recordset);
@@ -545,6 +551,34 @@ app.get('/api/users', requireAuth, async (req, res) => {
                 WHERE u.id <> @me`);
         res.json(result.recordset);
     } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/api/users/:id', requireAuth, async (req, res) => {
+    try {
+        const me = req.session.userId;
+        const targetId = parseInt(req.params.id, 10);
+        if (isNaN(targetId)) return res.status(400).json({ error: 'userId không hợp lệ' });
+
+        let pool = await sql.connect(dbConfig);
+        const result = await pool.request()
+            .input('me', sql.Int, me)
+            .input('targetId', sql.Int, targetId)
+            .query(`SELECT u.id, u.username, u.email, u.avatar, u.bio, u.dob, u.created_at,
+                    (SELECT COUNT(*) FROM Follows WHERE follower_id = u.id) AS following_count,
+                    (SELECT COUNT(*) FROM Follows WHERE following_id = u.id) AS followers_count,
+                    CASE WHEN f.follower_id IS NULL THEN 0 ELSE 1 END AS is_following
+                FROM Users u
+                LEFT JOIN Follows f ON f.following_id = u.id AND f.follower_id = @me
+                WHERE u.id = @targetId`);
+
+        if (result.recordset.length === 0) {
+            return res.status(404).json({ error: 'Không tìm thấy user' });
+        }
+
+        res.json(result.recordset[0]);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 app.post('/api/follow', requireAuth, async (req, res) => {
@@ -737,6 +771,19 @@ server.listen(PORT, async () => {
     try {
         let pool = await sql.connect(dbConfig);
         if (pool.connected) console.log("✅ Kết nối SQL Server thành công.");
+
+        // Ensure follows table exists so follow/unfollow works even if DB schema isn't pre-created
+        await pool.request().query(`
+            IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'Follows' AND schema_id = SCHEMA_ID('dbo'))
+            BEGIN
+                CREATE TABLE dbo.Follows (
+                    id INT IDENTITY(1,1) PRIMARY KEY,
+                    follower_id INT FOREIGN KEY REFERENCES dbo.Users(id),
+                    following_id INT FOREIGN KEY REFERENCES dbo.Users(id),
+                    UNIQUE(follower_id, following_id)
+                );
+            END
+        `);
     } catch (err) {
         console.error("❌ Lỗi Database:", err.message);
     }
