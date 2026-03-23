@@ -15,7 +15,7 @@ const server = http.createServer(app);
 // --- SOCKET.IO ---
 const io = new Server(server, {
     cors: {
-        origin: "http://localhost:3000",
+        origin: (o, cb) => cb(null, !o || /^https?:\/\/localhost(:\d+)?$/.test(o)),
         methods: ["GET", "POST"],
         credentials: true
     }
@@ -24,7 +24,7 @@ const io = new Server(server, {
 // --- MIDDLEWARE ---
 app.use(express.json({ limit: '50mb' }));
 app.use(cors({
-    origin: 'http://localhost:3000',
+    origin: (o, cb) => cb(null, !o || /^https?:\/\/localhost(:\d+)?$/.test(o)),
     credentials: true
 }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
@@ -725,7 +725,7 @@ app.use((err, req, res, next) => {
 // ============================================================
 // START SERVER
 // ============================================================
-const PORT = 3000;
+const PORT = parseInt(process.env.PORT || '3000', 10);
 server.listen(PORT, async () => {
     console.log(`🚀 Server NewsFeed + Chat đang chạy tại http://localhost:${PORT}`);
     try {
