@@ -99,6 +99,10 @@ io.on('connection', (socket) => {
         io.emit('user_status', { userId, status: 'online', lastSeen: null });
     });
 
+    socket.on('join', (convId) => {
+        if (convId) socket.join(`conversation_${convId}`);
+    });
+
     socket.on('send_message', async (data) => {
         const { senderId, receiverId, text, replyToId, conversationId, imageUrl } = data;
         try {
@@ -117,7 +121,25 @@ io.on('connection', (socket) => {
                     VALUES (@convId, @senderId, @receiverId, @text, @replyId, @img)
                 `);
 
-            const savedMsg = { ...data, id: result.recordset[0].id, created_at: result.recordset[0].created_at };
+            // If this message is a reply, enrich payload so UI can render quote + jump to target.
+            let reply_to = null;
+            if (replyToId) {
+                const replyRes = await pool.request()
+                    .input('replyId', sql.Int, replyToId)
+                    .query(`SELECT id, sender_id, message_text FROM Messages WHERE id = @replyId`);
+
+                if (replyRes.recordset && replyRes.recordset.length > 0) {
+                    const r = replyRes.recordset[0];
+                    reply_to = { id: r.id, sender_id: r.sender_id, text: r.message_text };
+                }
+            }
+
+            const savedMsg = {
+                ...data,
+                id: result.recordset[0].id,
+                created_at: result.recordset[0].created_at,
+                reply_to
+            };
 
             if (conversationId) {
                 await pool.request()
@@ -126,9 +148,22 @@ io.on('connection', (socket) => {
                     .query(`UPDATE Conversations SET last_message = @text, last_updated = GETDATE() WHERE id = @convId`);
 
                 io.to(`conversation_${conversationId}`).emit('receive_message', savedMsg);
+                // Gửi unread_badge_update tới từng participant (trừ người gửi) để cập nhật badge real-time
+                const parts = await pool.request()
+                    .input('convId', sql.Int, conversationId)
+                    .query(`SELECT user_id FROM ConversationParticipants WHERE conversation_id = @convId`);
+                for (const p of (parts.recordset || [])) {
+                    if (p.user_id !== senderId) {
+                        const sid = onlineUsers.get(String(p.user_id));
+                        if (sid) io.to(sid).emit('unread_badge_update');
+                    }
+                }
             } else {
                 const receiverSocketId = onlineUsers.get(String(receiverId));
-                if (receiverSocketId) io.to(receiverSocketId).emit('receive_message', savedMsg);
+                if (receiverSocketId) {
+                    io.to(receiverSocketId).emit('receive_message', savedMsg);
+                    io.to(receiverSocketId).emit('unread_badge_update');
+                }
             }
 
             socket.emit('message_sent', savedMsg);
@@ -466,11 +501,20 @@ app.get('/api/conversations', requireAuth, async (req, res) => {
         const result = await pool.request()
             .input('userId', sql.Int, userId)
             .query(`
-                SELECT c.id, c.title, c.last_message, c.last_updated,
-                    u.id as other_id, u.username as other_name, u.last_seen as other_last_seen
+                SELECT c.id, c.title, c.last_message, c.last_updated, c.is_group,
+                    oa.other_id, oa.other_name, oa.other_last_seen
                 FROM Conversations c
-                JOIN ConversationParticipants cp2 ON cp2.conversation_id = c.id AND cp2.user_id <> @userId
-                JOIN Users u ON u.id = cp2.user_id
+                OUTER APPLY (
+                    SELECT TOP 1
+                        u.id as other_id,
+                        u.username as other_name,
+                        u.last_seen as other_last_seen
+                    FROM ConversationParticipants cp2
+                    JOIN Users u ON u.id = cp2.user_id
+                    WHERE cp2.conversation_id = c.id
+                      AND cp2.user_id <> @userId
+                    ORDER BY u.id
+                ) oa
                 WHERE c.id IN (SELECT conversation_id FROM ConversationParticipants WHERE user_id = @userId)
                 ORDER BY c.last_updated DESC
             `);
@@ -482,23 +526,90 @@ app.get('/api/conversations', requireAuth, async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// Total unread count for header badge (based on Messages.seen flag).
+app.get('/api/conversations/unread-total', requireAuth, async (req, res) => {
+    try {
+        const userId = req.session.userId;
+        let pool = await sql.connect(dbConfig);
+        const result = await pool.request()
+            .input('userId', sql.Int, userId)
+            .query(`
+                SELECT COUNT(1) AS unread_count
+                FROM Messages m
+                WHERE m.conversation_id IS NOT NULL
+                  AND m.seen = 0
+                  AND m.sender_id <> @userId
+                  AND m.conversation_id IN (
+                      SELECT conversation_id
+                      FROM ConversationParticipants
+                      WHERE user_id = @userId
+                  )
+            `);
+
+        const unread = result.recordset && result.recordset[0] ? result.recordset[0].unread_count : 0;
+        res.json({ unreadCount: Number(unread) || 0 });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/conversations/:id/mark-read', requireAuth, async (req, res) => {
+    try {
+        const convId = parseInt(req.params.id, 10);
+        const userId = req.session.userId;
+        let pool = await sql.connect(dbConfig);
+        const check = await pool.request()
+            .input('convId', sql.Int, convId)
+            .input('userId', sql.Int, userId)
+            .query(`SELECT 1 FROM ConversationParticipants WHERE conversation_id = @convId AND user_id = @userId`);
+        if (!check.recordset || check.recordset.length === 0) {
+            return res.status(403).json({ error: 'Không có quyền' });
+        }
+        await pool.request()
+            .input('convId', sql.Int, convId)
+            .input('userId', sql.Int, userId)
+            .query(`UPDATE Messages SET seen = 1, seen_at = GETDATE() WHERE conversation_id = @convId AND sender_id <> @userId`);
+        const sid = onlineUsers.get(String(userId));
+        if (sid) io.to(sid).emit('unread_badge_update');
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 app.get('/api/conversations/:id/messages', requireAuth, async (req, res) => {
     try {
         const convId = parseInt(req.params.id, 10);
         let pool = await sql.connect(dbConfig);
         const result = await pool.request()
             .input('convId', sql.Int, convId)
-            .query(`SELECT m.id, m.sender_id, m.receiver_id, m.message_text as text, m.reply_to_id as reply_to, m.image_url, m.created_at, m.seen, m.reaction
-                    FROM Messages m
-                    WHERE m.conversation_id = @convId
-                    ORDER BY m.created_at ASC`);
-        res.json(result.recordset);
+            .query(`
+                SELECT 
+                    m.id, m.sender_id, m.receiver_id, m.message_text as text,
+                    m.image_url, m.created_at, m.seen, m.reaction,
+                    rm.id as reply_to_id,
+                    rm.sender_id as reply_sender_id,
+                    rm.message_text as reply_text
+                FROM Messages m
+                LEFT JOIN Messages rm ON m.reply_to_id = rm.id
+                WHERE m.conversation_id = @convId
+                ORDER BY m.created_at ASC
+            `);
+
+        const rows = result.recordset.map(m => {
+            const reply_to = m.reply_to_id
+                ? { id: m.reply_to_id, sender_id: m.reply_sender_id, text: m.reply_text }
+                : null;
+            return { ...m, reply_to };
+        });
+        res.json(rows);
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 app.post('/api/conversations', requireAuth, async (req, res) => {
     try {
-        const { participantIds, title } = req.body;
+        const { participantIds, title, isGroup } = req.body;
+        const groupFlag = isGroup ? 1 : 0;
         let pool = await sql.connect(dbConfig);
         const users = Array.from(new Set([req.session.userId].concat(participantIds || []))).map(x => parseInt(x, 10));
         const count = users.length;
@@ -507,7 +618,9 @@ app.post('/api/conversations', requireAuth, async (req, res) => {
         const checkQuery = `
             SELECT cp.conversation_id
             FROM ConversationParticipants cp
+            JOIN Conversations c ON c.id = cp.conversation_id
             WHERE cp.user_id IN (${idsList})
+              AND c.is_group = ${groupFlag}
             GROUP BY cp.conversation_id
             HAVING COUNT(DISTINCT cp.user_id) = ${count}
             AND (SELECT COUNT(*) FROM ConversationParticipants cp2 WHERE cp2.conversation_id = cp.conversation_id) = ${count}
@@ -519,7 +632,8 @@ app.post('/api/conversations', requireAuth, async (req, res) => {
 
         const insert = await pool.request()
             .input('title', sql.NVarChar, title || null)
-            .query(`INSERT INTO Conversations (title) OUTPUT INSERTED.id VALUES (@title)`);
+            .input('isGroup', sql.Bit, groupFlag)
+            .query(`INSERT INTO Conversations (title, is_group) OUTPUT INSERTED.id VALUES (@title, @isGroup)`);
         const convId = insert.recordset[0].id;
         for (const u of users) {
             await pool.request()

@@ -282,6 +282,20 @@
             font-size: 14px;
         }
 
+        .chat-unread-badge {
+            background: #ed4956;
+            color: #fff;
+            border-radius: 999px;
+            padding: 2px 8px;
+            font-size: 12px;
+            margin-left: 8px;
+            line-height: 1.2;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 22px;
+        }
+
         .empty-state {
             text-align: center;
             padding: 60px 20px;
@@ -305,7 +319,9 @@
 
                 <!-- Thêm 2 link mới -->
                 <a class="btn btn-profile" href="/friends.html">Bạn bè</a>
-                <a class="btn btn-profile" href="/chat.html">Nhắn tin</a>
+                <a class="btn btn-profile" href="/chat.html" id="chatLink">
+                    Nhắn tin <span id="chatUnreadBadge" class="chat-unread-badge" style="display:none;">0</span>
+                </a>
 
                 <button class="btn btn-logout" id="logoutBtn">Đăng xuất</button>
             </div>
@@ -316,9 +332,11 @@
         <p style="text-align: center; padding: 40px; color: #8e8e8e;">Đang kiểm tra đăng nhập...</p>
     </div>
 
+    <script src="/socket.io/socket.io.js"></script>
     <script>
         let isLoggedIn = false;
         let currentUser = null;
+        let notificationSocket = null;
 
         // Lấy base URL
         const baseUrl = window.location.origin === 'http://127.0.0.1:5500' || window.location.protocol === 'file:'
@@ -363,6 +381,9 @@
             profileLink.style.display = 'inline-block';
             addPostLink.href = `${baseUrl}/post/addpost.html`;
             addPostLink.style.display = 'inline-block';
+
+            loadChatUnreadBadge();
+            initNotificationSocket();
         }
 
         // Cập nhật UI khi chưa đăng nhập
@@ -381,6 +402,9 @@
             userInfo.style.display = 'none';
             if (profileLink) profileLink.style.display = 'none';
             if (addPostLink) addPostLink.style.display = 'none';
+            if (notificationSocket) { notificationSocket.disconnect(); notificationSocket = null; }
+            const badge = document.getElementById('chatUnreadBadge');
+            if (badge) badge.style.display = 'none';
 
             // Hiển thị thông báo yêu cầu đăng nhập
             postContainer.innerHTML = `
@@ -393,6 +417,46 @@
                     </div>
                 </div>
             `;
+        }
+
+        function initNotificationSocket() {
+            if (notificationSocket) notificationSocket.disconnect();
+            if (!currentUser || !currentUser.id) return;
+            try {
+                notificationSocket = io(baseUrl, { withCredentials: true });
+                notificationSocket.emit('register', currentUser.id);
+                notificationSocket.on('unread_badge_update', () => loadChatUnreadBadge());
+            } catch (e) { notificationSocket = null; }
+        }
+
+        async function loadChatUnreadBadge() {
+            try {
+                const badge = document.getElementById('chatUnreadBadge');
+                if (!badge) return;
+                // Show temporarily while loading
+                badge.style.display = 'inline-flex';
+                badge.textContent = '...';
+
+                const r = await fetch(`${baseUrl}/api/conversations/unread-total`, {
+                    credentials: 'include'
+                });
+                if (!r.ok) {
+                    badge.style.display = 'none';
+                    return;
+                }
+
+                const data = await r.json();
+                const count = Number(data.unreadCount) || 0;
+                if (count > 0) {
+                    badge.textContent = String(count);
+                    badge.style.display = 'inline-flex';
+                } else {
+                    badge.style.display = 'none';
+                }
+            } catch {
+                const badge = document.getElementById('chatUnreadBadge');
+                if (badge) badge.style.display = 'none';
+            }
         }
 
         // Lấy danh sách bài đăng
@@ -653,6 +717,10 @@
         // Gắn sự kiện cho nút đăng xuất
         document.addEventListener('DOMContentLoaded', () => {
             checkAuthStatus();
+            // Cập nhật badge khi chuyển tab về trang post (vd: từ chat quay lại)
+            document.addEventListener('visibilitychange', () => {
+                if (document.visibilityState === 'visible' && isLoggedIn) loadChatUnreadBadge();
+            });
 
             document.addEventListener('click', (e) => {
                 if (e.target.id === 'logoutBtn') {
