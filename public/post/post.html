@@ -128,11 +128,105 @@
             font-size: 14px;
         }
 
-        .feed {
-            max-width: 614px;
+        .main-content {
+            max-width: 935px;
             margin: 0 auto;
             margin-top: 60px;
             padding: 0 20px;
+            display: flex;
+            gap: 16px;
+            align-items: flex-start;
+        }
+
+        .feed {
+            flex: 1 1 0;
+            max-width: 614px;
+        }
+
+        .sidebar {
+            width: 280px;
+            min-width: 250px;
+            position: sticky;
+            top: 80px;
+            align-self: flex-start;
+        }
+
+        .sidebar-card {
+            background: white;
+            border: 1px solid #dbdbdb;
+            border-radius: 8px;
+            padding: 12px;
+        }
+
+        .sidebar-card h2 {
+            margin: 0 0 8px;
+            font-size: 16px;
+            color: #262626;
+        }
+
+        .sidebar-search {
+            width: 100%;
+            padding: 8px 10px;
+            border: 1px solid #dbdbdb;
+            border-radius: 6px;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+
+        .user-suggestion {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            padding: 8px 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .user-suggestion:last-child {
+            border-bottom: none;
+        }
+
+        .user-suggestion .user-info {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .user-suggestion .username {
+            font-size: 14px;
+            color: #262626;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .user-suggestion .followers {
+            font-size: 12px;
+            color: #8e8e8e;
+        }
+
+        .user-suggestion .avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+            font-size: 14px;
+            overflow: hidden;
+        }
+
+        .user-suggestion .avatar img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .user-suggestion .follow-btn {
+            padding: 4px 8px;
+            font-size: 12px;
         }
 
         .post-card {
@@ -161,6 +255,15 @@
             font-weight: 600;
             font-size: 14px;
             margin-right: 12px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .post-avatar img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
         }
 
         .post-username {
@@ -349,7 +452,7 @@
     </style>
 </head>
 
-<<body>
+<body>
     <div class="header">
         <div class="header-content">
             <div class="logo">NewsFeed</div>
@@ -375,8 +478,19 @@
         </div>
     </div>
 
-    <div class="feed" id="postContainer">
-        <p style="text-align: center; padding: 40px; color: #8e8e8e;">Đang kiểm tra đăng nhập...</p>
+    <div class="main-content">
+        <div class="feed" id="postContainer">
+            <p style="text-align: center; padding: 40px; color: #8e8e8e;">Đang kiểm tra đăng nhập...</p>
+        </div>
+        <aside class="sidebar">
+            <div class="sidebar-card">
+                <h2>Gợi ý người dùng</h2>
+                <input id="userSearchInput" class="sidebar-search" type="text" placeholder="Tìm kiếm người dùng..." />
+                <div id="sidebarUsersList">
+                    <p style="color: #8e8e8e; margin: 8px 0;">Đang tải...</p>
+                </div>
+            </div>
+        </aside>
     </div>
 
     <script src="/socket.io/socket.io.js"></script>
@@ -403,6 +517,7 @@
                     currentUser = data.user;
                     updateUIForLoggedIn();
                     fetchPosts();
+                    fetchSuggestedUsers();
                 } else {
                     isLoggedIn = false;
                     updateUIForLoggedOut();
@@ -543,7 +658,9 @@
 
                     postElement.innerHTML = `
                         <div class="post-header">
-                            <div class="post-avatar">${avatarInitial}</div>
+                            <div class="post-avatar">
+                                ${post.user_avatar ? `<img src="${post.user_avatar}" alt="${username} avatar">` : avatarInitial}
+                            </div>
                             <a class="post-username" href="/user/profile.html?userId=${post.user_id}">${username}</a>
                             ${!isOwnPost ? `<button class="follow-btn ${isFollowing ? 'following' : ''}" data-user-id="${post.user_id}">${isFollowing ? 'Đang theo dõi' : 'Theo dõi'}</button>` : ''}
                         </div>
@@ -577,6 +694,60 @@
                 console.error("Lỗi khi lấy dữ liệu:", error);
                 document.getElementById('postContainer').innerHTML = '<div class="empty-state" style="color: #ed4956;">Không thể kết nối với server.</div>';
             }
+        }
+
+        async function fetchSuggestedUsers(search = '') {
+            if (!isLoggedIn) return;
+
+            try {
+                const searchQuery = search ? `?search=${encodeURIComponent(search)}` : '';
+                const response = await fetch(`${baseUrl}/api/users${searchQuery}`, {
+                    credentials: 'include'
+                });
+
+                if (response.status === 401) {
+                    isLoggedIn = false;
+                    updateUIForLoggedOut();
+                    return;
+                }
+
+                const users = await response.json();
+                renderSuggestedUsers(users);
+            } catch (error) {
+                console.error('Lỗi khi tải danh sách người dùng:', error);
+                const list = document.getElementById('sidebarUsersList');
+                if (list) list.innerHTML = '<p class="empty-state">Không thể tải danh sách người dùng.</p>';
+            }
+        }
+
+        function renderSuggestedUsers(users) {
+            const list = document.getElementById('sidebarUsersList');
+            if (!list) return;
+
+            if (!Array.isArray(users) || users.length === 0) {
+                list.innerHTML = '<p class="empty-state">Không tìm thấy người dùng.</p>';
+                return;
+            }
+
+            list.innerHTML = users.map(user => {
+                const username = user.username || `User #${user.id}`;
+                const avatarInitial = username.charAt(0).toUpperCase();
+                const isFollowing = !!user.is_following;
+                const followersCount = typeof user.followers_count === 'number' ? user.followers_count : 0;
+
+                return `
+                    <div class="user-suggestion" data-user-id="${user.id}">
+                        <div class="user-info">
+                            <div class="avatar">${user.avatar ? `<img src="${user.avatar}" alt="${username} avatar">` : avatarInitial}</div>
+                            <div>
+                                <a href="/user/profile.html?userId=${user.id}" class="username">${username}</a>
+                                <div class="followers">${followersCount} người theo dõi</div>
+                            </div>
+                        </div>
+                        <button class="btn follow-btn ${isFollowing ? 'following' : ''}" data-user-id="${user.id}">${isFollowing ? 'Đang theo dõi' : 'Theo dõi'}</button>
+                    </div>
+                `;
+            }).join('');
         }
 
         // Tính thời gian đã trôi qua
@@ -795,6 +966,15 @@
         }
         document.addEventListener('DOMContentLoaded', () => {
             checkAuthStatus();
+
+            const searchInput = document.getElementById('userSearchInput');
+            if (searchInput) {
+                searchInput.addEventListener('input', (e) => {
+                    const query = e.target.value.trim();
+                    fetchSuggestedUsers(query);
+                });
+            }
+
             // Cập nhật badge khi chuyển tab về trang post (vd: từ chat quay lại)
             document.addEventListener('visibilitychange', () => {
                 if (document.visibilityState === 'visible' && isLoggedIn) loadChatUnreadBadge();
@@ -807,6 +987,6 @@
             });
         });
     </script>
-    </body>
+</body>
 
 </html>

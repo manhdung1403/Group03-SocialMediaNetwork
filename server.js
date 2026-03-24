@@ -86,11 +86,9 @@ function requireAuth(req, res, next) {
     return res.status(401).json({ error: 'Chưa đăng nhập' });
 }
 
-// ============================================================
 // SOCKET.IO REAL-TIME CHAT
-// ============================================================
-const onlineUsers = new Map();       // userId => socketId (giữ 1 cho user_status/chat cũ)
-const userSockets = new Map();       // userId => Set<socketId> (nhiều tab/màn hình)
+const onlineUsers = new Map();
+const userSockets = new Map();
 
 function emitToUser(userId, event, data) {
     const ids = userSockets.get(String(userId));
@@ -230,9 +228,7 @@ io.on('connection', (socket) => {
     });
 });
 
-// ============================================================
 // UPLOAD API
-// ============================================================
 app.post('/api/upload-image', requireAuth, upload.single('image'), (req, res) => {
     try {
         if (!req.file) return res.status(400).json({ error: 'No file' });
@@ -244,9 +240,7 @@ app.post('/api/upload-image', requireAuth, upload.single('image'), (req, res) =>
     }
 });
 
-// ============================================================
 // AUTH APIs
-// ============================================================
 app.post('/api/register', async (req, res) => {
     try {
         const { username, email, password, dob } = req.body;
@@ -344,10 +338,7 @@ app.get('/api/auth/status', (req, res) => {
         res.json({ loggedIn: false });
     }
 });
-
-// ============================================================
 // USER PROFILE APIs
-// ============================================================
 app.get('/api/user/profile', requireAuth, async (req, res) => {
     try {
         let pool = await sql.connect(dbConfig);
@@ -477,9 +468,7 @@ app.put('/api/user/profile', requireAuth, async (req, res) => {
     }
 });
 
-// ============================================================
 // POST APIs
-// ============================================================
 app.get('/api/posts', requireAuth, async (req, res) => {
     try {
         let pool = await sql.connect(dbConfig);
@@ -493,6 +482,7 @@ app.get('/api/posts', requireAuth, async (req, res) => {
                     p.created_at, 
                     u.id AS user_id, 
                     u.username,
+                    u.avatar AS user_avatar,
                     ISNULL(lc.like_count, 0) AS like_count,
                     ISNULL(cc.comment_count, 0) AS comment_count,
                     CASE WHEN ul.user_id IS NULL THEN 0 ELSE 1 END AS liked_by_current_user,
@@ -586,21 +576,36 @@ app.post('/api/posts/:id/like', requireAuth, async (req, res) => {
         res.status(500).json({ error: 'Lỗi server: ' + err.message });
     }
 });
-
-// ============================================================
 // USER & FOLLOW APIs
-// ============================================================
 app.get('/api/users', requireAuth, async (req, res) => {
     try {
         const me = req.session.userId;
+        const search = (req.query.search || '').trim();
+
         let pool = await sql.connect(dbConfig);
-        const result = await pool.request()
-            .input('me', sql.Int, me)
-            .query(`SELECT u.id, u.username, u.avatar,
+        let request = pool.request()
+            .input('me', sql.Int, me);
+
+        let whereClause = 'WHERE u.id <> @me';
+        if (search) {
+            whereClause += ' AND u.username LIKE @search';
+            request = request.input('search', sql.NVarChar, `%${search}%`);
+        }
+
+        const result = await request.query(`
+            SELECT u.id,
+                u.username,
+                u.avatar,
+                ISNULL(fc.followers_count, 0) AS followers_count,
                 CASE WHEN f.follower_id IS NULL THEN 0 ELSE 1 END AS is_following
-                FROM Users u
-                LEFT JOIN Follows f ON f.following_id = u.id AND f.follower_id = @me
-                WHERE u.id <> @me`);
+            FROM Users u
+            LEFT JOIN (SELECT following_id, COUNT(*) AS followers_count FROM Follows GROUP BY following_id) fc
+                ON fc.following_id = u.id
+            LEFT JOIN Follows f ON f.following_id = u.id AND f.follower_id = @me
+            ${whereClause}
+            ORDER BY ISNULL(fc.followers_count, 0) DESC, u.username ASC
+        `);
+
         res.json(result.recordset);
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -662,9 +667,7 @@ app.post('/api/unfollow', requireAuth, async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// ============================================================
 // CHAT / CONVERSATION APIs
-// ============================================================
 app.get('/api/messages/:receiverId', requireAuth, async (req, res) => {
     try {
         const senderId = req.session.userId;
@@ -877,9 +880,7 @@ app.delete('/api/conversations/:id', requireAuth, async (req, res) => {
     }
 });
 
-// ============================================================
 // ERROR HANDLERS
-// ============================================================
 app.use('/api', (req, res) => {
     res.status(404).json({ error: 'API không tồn tại' });
 });
@@ -892,15 +893,13 @@ app.use((err, req, res, next) => {
     res.status(500).json({ error: 'Lỗi server: ' + (err && err.message ? err.message : 'Không xác định') });
 });
 
-// ============================================================
 // START SERVER
-// ============================================================
 const PORT = parseInt(process.env.PORT || '3000', 10);
 server.listen(PORT, async () => {
     console.log(`🚀 Server NewsFeed + Chat đang chạy tại http://localhost:${PORT}`);
     try {
         let pool = await sql.connect(dbConfig);
-        if (pool.connected) console.log("✅ Kết nối SQL Server thành công.");
+        if (pool.connected) console.log("Kết nối SQL Server thành công.");
 
         // Ensure follows table exists so follow/unfollow works even if DB schema isn't pre-created
         await pool.request().query(`
@@ -915,6 +914,6 @@ server.listen(PORT, async () => {
             END
         `);
     } catch (err) {
-        console.error("❌ Lỗi Database:", err.message);
+        console.error("Lỗi Database:", err.message);
     }
 });
