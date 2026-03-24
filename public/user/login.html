@@ -5,115 +5,32 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Đăng nhập - NewsFeed</title>
+    <link rel="stylesheet" href="/css/common.css">
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            background-color: #fafafa;
+        body.auth-page {
             display: flex;
             justify-content: center;
             align-items: center;
             min-height: 100vh;
         }
 
-        .login-container {
-            background: white;
-            border: 1px solid #dbdbdb;
-            padding: 40px;
-            width: 100%;
-            max-width: 350px;
-            text-align: center;
-        }
-
-        .logo {
-            font-size: 51px;
-            font-weight: 300;
-            margin-bottom: 24px;
-            color: #262626;
-            letter-spacing: -1px;
-        }
-
-        .form-group {
-            margin-bottom: 6px;
-        }
-
-        input[type="email"],
-        input[type="password"] {
-            width: 100%;
-            padding: 9px 0 7px 8px;
-            background-color: #fafafa;
-            border: 1px solid #dbdbdb;
-            border-radius: 3px;
-            font-size: 14px;
-            color: #262626;
-            outline: none;
-        }
-
-        input[type="email"]:focus,
-        input[type="password"]:focus {
-            border-color: #a8a8a8;
-        }
-
-        input::placeholder {
-            color: #8e8e8e;
-        }
-
-        .btn {
-            width: 100%;
-            padding: 7px 16px;
-            background-color: #0095f6;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            font-size: 14px;
-            font-weight: 600;
-            cursor: pointer;
-            margin-top: 8px;
-            transition: background-color 0.2s;
-        }
-
-        .btn:hover {
-            background-color: #1877f2;
-        }
-
-        .btn:disabled {
-            background-color: #b2dffc;
-            cursor: not-allowed;
-        }
-
-        .error-message {
-            color: #ed4956;
-            font-size: 14px;
-            margin-top: 10px;
-            display: none;
-            text-align: left;
-        }
-
-        .error-message.show {
-            display: block;
-        }
-
         .register-link {
             margin-top: 18px;
             padding: 20px;
             background: white;
-            border: 1px solid #dbdbdb;
+            border: 1px solid var(--border-light);
             font-size: 14px;
-            color: #262626;
+            color: var(--text-dark);
+            text-align: center;
         }
 
         .register-link p {
             margin: 0;
-            color: #262626;
+            color: var(--text-dark);
         }
 
         .register-link a {
-            color: #0095f6;
+            color: var(--primary-blue);
             text-decoration: none;
             font-weight: 600;
         }
@@ -127,10 +44,14 @@
             flex-direction: column;
             gap: 10px;
         }
+
+        .logo {
+            font-size: 51px;
+        }
     </style>
 </head>
 
-<body>
+<body class="auth-page">
     <div class="wrapper">
         <div class="login-container">
             <div class="logo">NewsFeed</div>
@@ -152,10 +73,10 @@
 
     <script>
         // Lấy base URL (http://localhost:3000 hoặc origin hiện tại)
-        const baseUrl = window.location.origin === 'http://127.0.0.1:5500' || window.location.protocol === 'file:' 
-            ? 'http://localhost:3000' 
+        const baseUrl = window.location.origin === 'http://127.0.0.1:5500' || window.location.protocol === 'file:'
+            ? 'http://localhost:3000'
             : window.location.origin;
-        
+
         // Cập nhật link đăng ký
         document.querySelector('.register-link a').href = `${baseUrl}/user/register.html`;
 
@@ -165,7 +86,7 @@
 
         loginForm.addEventListener('submit', async (e) => {
             e.preventDefault();
-            
+
             const email = document.getElementById('email').value;
             const password = document.getElementById('password').value;
 

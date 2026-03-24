@@ -1,0 +1,775 @@
+/* ====================================================================
+   UNIFIED COMMON STYLES - Kiểu nhất quán cho toàn bộ frontend
+   ==================================================================== */
+
+/* ========== RESET & BASE ========== */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html, body {
+    height: 100%;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background-color: #fafafa;
+    color: #262626;
+    line-height: 1.5;
+}
+
+/* ========== COLOR VARIABLES (LIGHT THEME) ========== */
+:root {
+    /* Primary Colors */
+    --primary-blue: #0095f6;
+    --primary-blue-hover: #1877f2;
+    --primary-blue-disabled: #b2dffc;
+    
+    /* Danger Color */
+    --danger-red: #ed4956;
+    
+    /* Accent Colors */
+    --accent-cyan: #06b6d4;
+    --accent-orange: #f97316;
+    
+    /* Text Colors */
+    --text-dark: #262626;
+    --text-gray: #8e8e8e;
+    --text-light: #e5e7eb;
+    
+    /* Background Colors */
+    --bg-white: #ffffff;
+    --bg-light: #f0f0f0;
+    --bg-lighter: #fafafa;
+    
+    /* Border Colors */
+    --border-light: #dbdbdb;
+    --border-medium: #1f2937;
+    
+    /* Dark Theme */
+    --dark-bg: #0f1720;
+    --dark-panel: #111827;
+    --dark-accent: #0ea5e9;
+    --dark-bubble: #0b1220;
+}
+
+/* ========== TYPOGRAPHY ========== */
+h1, h2, h3, h4, h5, h6 {
+    font-family: inherit;
+    font-weight: 600;
+}
+
+h1 {
+    font-size: 32px;
+    font-weight: 300;
+    letter-spacing: -1px;
+}
+
+h2 {
+    font-size: 24px;
+}
+
+h3 {
+    font-size: 18px;
+}
+
+.subtitle {
+    color: var(--text-gray);
+    font-size: 17px;
+    font-weight: 600;
+}
+
+.username {
+    color: var(--text-dark);
+    font-weight: 600;
+    font-size: 14px;
+}
+
+/* ========== LINKS ========== */
+a {
+    text-decoration: none;
+    color: inherit;
+    transition: opacity 0.2s;
+}
+
+a:hover {
+    opacity: 0.8;
+}
+
+/* ========== BUTTONS ========== */
+button, .btn {
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+}
+
+button {
+    background: transparent;
+    border: 1px solid var(--border-light);
+    color: var(--text-dark);
+    padding: 5px 9px;
+    font-weight: 600;
+    font-size: 14px;
+}
+
+button:hover {
+    background: var(--bg-light);
+}
+
+/* Button Classes */
+.btn {
+    padding: 6px 16px;
+    border: none;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.btn-primary {
+    background-color: var(--primary-blue);
+    color: white;
+}
+
+.btn-primary:hover {
+    background-color: var(--primary-blue-hover);
+}
+
+.btn-primary:disabled {
+    background-color: var(--primary-blue-disabled);
+    cursor: not-allowed;
+}
+
+.btn-login {
+    background-color: var(--primary-blue);
+    color: white;
+    width: 100%;
+    padding: 7px 16px;
+    margin-top: 8px;
+}
+
+.btn-login:hover {
+    background-color: var(--primary-blue-hover);
+}
+
+.btn-login:disabled {
+    background-color: var(--primary-blue-disabled);
+    cursor: not-allowed;
+}
+
+.btn-register {
+    background-color: transparent;
+    color: var(--primary-blue);
+    border: 1px solid var(--border-light);
+}
+
+.btn-register:hover {
+    background-color: var(--bg-light);
+}
+
+.btn-logout {
+    background-color: transparent;
+    color: var(--text-dark);
+    border: 1px solid var(--border-light);
+}
+
+.btn-logout:hover {
+    background-color: var(--bg-light);
+}
+
+.btn-profile {
+    background-color: transparent;
+    color: var(--primary-blue);
+    border: 1px solid var(--border-light);
+}
+
+.btn-profile:hover {
+    background-color: var(--bg-light);
+}
+
+.btn-choose-avatar {
+    background: var(--primary-blue);
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 4px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.btn-choose-avatar:hover {
+    background-color: var(--primary-blue-hover);
+}
+
+.icon-btn {
+    padding: 0;
+    width: 36px;
+    height: 36px;
+    min-width: 36px;
+    background: transparent;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.icon-btn svg {
+    width: 18px;
+    height: 18px;
+    fill: currentColor;
+}
+
+.follow-btn {
+    padding: 4px 10px;
+    border-radius: 4px;
+    border: 1px solid var(--border-light);
+    background: white;
+    font-size: 12px;
+    color: var(--text-dark);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 600;
+    margin-left: auto;
+}
+
+.follow-btn:hover {
+    background: var(--bg-light);
+}
+
+.follow-btn.following {
+    border-color: transparent;
+    background: var(--primary-blue);
+    color: white;
+}
+
+.follow-btn.following:hover {
+    background: var(--primary-blue-hover);
+}
+
+/* ========== AVATAR & PROFILE PICTURE ========== */
+.avatar, .profile-pic, .post-avatar {
+    border-radius: 50%;
+    background: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: 600;
+    overflow: hidden;
+    flex-shrink: 0;
+    object-fit: cover;
+}
+
+.avatar img, .profile-pic img, .post-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+/* ========== FORM ELEMENTS ========== */
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="date"],
+textarea,
+select {
+    width: 100%;
+    padding: 9px 8px;
+    background-color: #fafafa;
+    border: 1px solid var(--border-light);
+    border-radius: 3px;
+    font-size: 14px;
+    color: var(--text-dark);
+    font-family: inherit;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+input[type="text"]:focus,
+input[type="email"]:focus,
+input[type="password"]:focus,
+input[type="date"]:focus,
+textarea:focus,
+select:focus {
+    border-color: var(--primary-blue);
+    background-color: white;
+}
+
+input::placeholder {
+    color: var(--text-gray);
+}
+
+textarea {
+    resize: vertical;
+    min-height: 80px;
+}
+
+.form-group {
+    margin-bottom: 6px;
+}
+
+label {
+    display: block;
+    font-weight: 600;
+    font-size: 14px;
+    margin-bottom: 8px;
+    color: var(--text-dark);
+}
+
+.error-message {
+    color: var(--danger-red);
+    font-size: 14px;
+    margin-top: 10px;
+    display: none;
+    text-align: left;
+}
+
+.error-message.show {
+    display: block;
+}
+
+/* ========== LAYOUT COMPONENTS ========== */
+.container {
+    max-width: 935px;
+    margin: 0 auto;
+    padding: 30px 20px;
+}
+
+.header {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    background: white;
+    border-bottom: 1px solid var(--border-light);
+    padding: 12px 0;
+    z-index: 100;
+}
+
+.header-content {
+    max-width: 935px;
+    margin: 0 auto;
+    padding: 0 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.logo {
+    font-size: 24px;
+    font-weight: 300;
+    color: var(--text-dark);
+    letter-spacing: -1px;
+    cursor: pointer;
+    transition: color 0.2s;
+}
+
+.logo:hover {
+    color: var(--text-gray);
+}
+
+.auth-buttons {
+    display: flex;
+    gap: 8px;
+}
+
+.user-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+/* ========== CARDS & CONTAINERS ========== */
+.card {
+    background: white;
+    border: 1px solid var(--border-light);
+    border-radius: 8px;
+    padding: 15px;
+}
+
+.sidebar-card {
+    background: white;
+    border: 1px solid var(--border-light);
+    border-radius: 8px;
+    padding: 10px;
+}
+
+.sidebar-card h2 {
+    margin: 0 0 6px;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text-dark);
+}
+
+.sidebar-search {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid var(--border-light);
+    border-radius: 6px;
+    margin-bottom: 8px;
+    font-size: 13px;
+}
+
+#sidebarUsersList {
+    max-height: 500px;
+    overflow-y: auto;
+}
+
+.user-suggestion {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+/* ========== GRID & FLEX UTILITIES ========== */
+.grid {
+    display: grid;
+}
+
+.grid-2 {
+    grid-template-columns: 1fr 1fr;
+}
+
+.gap-12 {
+    gap: 12px;
+}
+
+.flex {
+    display: flex;
+}
+
+.flex-between {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.gap-8 {
+    gap: 8px;
+}
+
+.gap-10 {
+    gap: 10px;
+}
+
+/* ========== PROFILE PAGE STYLES ========== */
+.tabs {
+    border-top: 1px solid var(--border-light);
+    display: flex;
+    justify-content: center;
+    gap: 60px;
+    margin-bottom: 0;
+}
+
+.tab-item {
+    text-transform: uppercase;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    padding: 15px 0;
+    border-top: 1px solid var(--border-light);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    color: #999;
+    transition: color 0.2s;
+}
+
+.tab-item.active-tab {
+    border-top: 1px solid var(--text-dark);
+    color: var(--text-dark);
+}
+
+#posts {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 28px;
+}
+
+.post-item {
+    position: relative;
+    aspect-ratio: 1 / 1;
+    overflow: hidden;
+    background-color: #efefef;
+    cursor: pointer;
+}
+
+.post-item img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: opacity 0.3s;
+}
+
+.post-item:hover img {
+    opacity: 0.8;
+    filter: brightness(0.8);
+}
+
+.post-overlay {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.7), transparent);
+    padding: 15px;
+    display: flex;
+    justify-content: space-around;
+    color: white;
+    font-size: 14px;
+    font-weight: 600;
+    opacity: 0;
+    transition: opacity 0.3s;
+}
+
+.post-item:hover .post-overlay {
+    opacity: 1;
+}
+
+.post-stat {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+/* ========== EDIT PROFILE PAGE ========== */
+.edit-profile-container {
+    max-width: 500px;
+    margin: 40px auto;
+    padding: 20px;
+    background: white;
+    border: 1px solid var(--border-light);
+    border-radius: 8px;
+}
+
+.avatar-section {
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+.avatar-preview {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    margin: 0 auto 15px;
+    background: #eee;
+    object-fit: cover;
+    border: 1px solid var(--border-light);
+}
+
+.file-input-wrapper {
+    position: relative;
+    display: inline-block;
+    width: 100%;
+}
+
+#avatarInput {
+    display: none;
+}
+
+/* ========== LOGIN/REGISTER PAGE ========== */
+.login-container,
+.register-container {
+    background: white;
+    border: 1px solid var(--border-light);
+    padding: 40px;
+    width: 100%;
+    max-width: 350px;
+    text-align: center;
+    margin: auto;
+}
+
+body.auth-page {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+}
+
+/* ========== DARK THEME (Chat & Friends) ========== */
+body.dark-theme {
+    background-color: var(--dark-bg);
+    color: var(--text-light);
+}
+
+.dark-theme .header {
+    background-color: var(--dark-panel);
+    border-bottom-color: var(--border-medium);
+}
+
+.dark-theme input[type="text"],
+.dark-theme input[type="email"],
+.dark-theme input[type="password"],
+.dark-theme input[type="date"],
+.dark-theme textarea,
+.dark-theme select {
+    background-color: var(--dark-bubble);
+    border-color: var(--border-medium);
+    color: var(--text-light);
+}
+
+.dark-theme input:placeholder {
+    color: var(--text-gray);
+}
+
+/* ========== CHAT PAGE STYLES ========== */
+.app {
+    max-width: 1100px;
+    margin: 24px auto;
+    border-radius: 8px;
+    overflow: hidden;
+    display: flex;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.6);
+    height: calc(100vh - 48px);
+}
+
+.sidebar {
+    width: 320px;
+    background: var(--dark-panel);
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    height: 100%;
+}
+
+.search {
+    display: flex;
+    gap: 8px;
+}
+
+.search input {
+    flex: 1;
+    padding: 8px;
+    border-radius: 6px;
+    border: 1px solid var(--border-medium);
+    background: var(--dark-bubble);
+    color: var(--text-light);
+}
+
+.conversations {
+    overflow: auto;
+    flex: 1;
+}
+
+.conv {
+    padding: 10px;
+    border-radius: 6px;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    cursor: pointer;
+}
+
+.conv:hover {
+    background: var(--dark-bubble);
+}
+
+.conv .meta {
+    flex: 1;
+}
+
+.conv .meta .name {
+    font-weight: 600;
+}
+
+.badge {
+    background: var(--danger-red);
+    color: white;
+    padding: 2px 6px;
+    border-radius: 999px;
+    font-size: 12px;
+}
+
+.chat-window {
+    flex: 1;
+    background: linear-gradient(180deg, #071018 0%, #08121a 100%);
+    display: flex;
+    flex-direction: column;
+}
+
+/* ========== FRIENDS PAGE STYLES ========== */
+.user {
+    background: var(--dark-bg);
+    padding: 12px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.actions {
+    margin-left: auto;
+    display: flex;
+    gap: 8px;
+}
+
+.btn-dark {
+    background: var(--accent-cyan);
+    border: none;
+    padding: 8px 10px;
+    border-radius: 8px;
+    color: #062024;
+    cursor: pointer;
+}
+
+.btn-ghost {
+    background: transparent;
+    color: var(--text-gray);
+    border: 1px solid var(--border-medium);
+}
+
+.btn-ghost:hover {
+    background: var(--dark-bubble);
+}
+
+/* ========== POST PAGE STYLES ========== */
+.main-content {
+    max-width: 1200px;
+    margin: 0 auto;
+    margin-top: 60px;
+    padding: 0 12px;
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+}
+
+.feed {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.sidebar-profile {
+    width: 340px;
+    min-width: 320px;
+    position: sticky;
+    top: 80px;
+    align-self: flex-start;
+}
+
+/* ========== RESPONSIVE DESIGN ========== */
+@media (max-width: 735px) {
+    .profile-pic {
+        width: 77px;
+        height: 77px;
+    }
+
+    .post-avatar {
+        width: 24px;
+        height: 24px;
+        font-size: 12px;
+    }
+
+    body {
+        padding-bottom: 60px;
+    }
+}

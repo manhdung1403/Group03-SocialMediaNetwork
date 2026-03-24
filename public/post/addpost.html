@@ -5,98 +5,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Thêm bài đăng - NewsFeed</title>
+    <link rel="stylesheet" href="/css/common.css">
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            background-color: #fafafa;
             padding-bottom: 60px;
-        }
-
-        .header {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            background: white;
-            border-bottom: 1px solid #dbdbdb;
-            padding: 12px 0;
-            z-index: 100;
-        }
-
-        .header-content {
-            max-width: 935px;
-            margin: 0 auto;
-            padding: 0 20px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .logo {
-            font-size: 24px;
-            font-weight: 300;
-            color: #262626;
-            letter-spacing: -1px;
-            cursor: pointer;
-        }
-
-        .logo:hover {
-            color: #8e8e8e;
-        }
-
-        .auth-buttons {
-            display: flex;
-            gap: 8px;
-        }
-
-        .btn {
-            padding: 6px 16px;
-            border: none;
-            border-radius: 4px;
-            font-size: 14px;
-            font-weight: 600;
-            cursor: pointer;
-            text-decoration: none;
-            display: inline-block;
-            transition: background-color 0.2s;
-        }
-
-        .btn-logout {
-            background-color: transparent;
-            color: #262626;
-            border: 1px solid #dbdbdb;
-        }
-
-        .btn-logout:hover {
-            background-color: #fafafa;
-        }
-
-        .btn-profile {
-            background-color: transparent;
-            color: #0095f6;
-            border: 1px solid #dbdbdb;
-        }
-
-        .btn-profile:hover {
-            background-color: #fafafa;
-        }
-
-        .user-info {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-
-        .username {
-            color: #262626;
-            font-weight: 600;
-            font-size: 14px;
         }
 
         .form-container {
@@ -104,35 +16,23 @@
             margin: 100px auto;
             padding: 20px;
             background: white;
-            border: 1px solid #dbdbdb;
+            border: 1px solid var(--border-light);
             border-radius: 3px;
         }
 
         .form-title {
             font-size: 24px;
             font-weight: 600;
-            color: #262626;
+            color: var(--text-dark);
             margin-bottom: 20px;
             text-align: center;
-        }
-
-        .form-group {
-            margin-bottom: 20px;
-        }
-
-        .form-group label {
-            display: block;
-            font-size: 14px;
-            font-weight: 600;
-            color: #262626;
-            margin-bottom: 8px;
         }
 
         .form-group input,
         .form-group textarea {
             width: 100%;
             padding: 10px;
-            border: 1px solid #dbdbdb;
+            border: 1px solid var(--border-light);
             border-radius: 4px;
             font-size: 14px;
             font-family: inherit;
@@ -142,7 +42,7 @@
         .form-group input:focus,
         .form-group textarea:focus {
             outline: none;
-            border-color: #0095f6;
+            border-color: var(--primary-blue);
         }
 
         .form-group textarea {
@@ -153,7 +53,7 @@
         .btn-submit {
             width: 100%;
             padding: 10px;
-            background-color: #0095f6;
+            background-color: var(--primary-blue);
             color: white;
             border: none;
             border-radius: 4px;
@@ -164,11 +64,11 @@
         }
 
         .btn-submit:hover:not(:disabled) {
-            background-color: #1877f2;
+            background-color: var(--primary-blue-hover);
         }
 
         .btn-submit:disabled {
-            background-color: #dbdbdb;
+            background-color: var(--border-light);
             cursor: not-allowed;
         }
 
@@ -176,8 +76,8 @@
             width: 100%;
             padding: 10px;
             background-color: transparent;
-            color: #0095f6;
-            border: 1px solid #dbdbdb;
+            color: var(--primary-blue);
+            border: 1px solid var(--border-light);
             border-radius: 4px;
             font-size: 14px;
             font-weight: 600;
@@ -187,25 +87,25 @@
         }
 
         .btn-back:hover {
-            background-color: #fafafa;
+            background-color: var(--bg-lighter);
         }
 
         .error-message {
-            color: #ed4956;
+            color: white;
             font-size: 14px;
             margin-bottom: 20px;
             padding: 10px;
-            background-color: #ffe0e6;
+            background-color: var(--danger-red);
             border-radius: 4px;
             display: none;
         }
 
         .success-message {
-            color: #31a24c;
+            color: white;
             font-size: 14px;
             margin-bottom: 20px;
             padding: 10px;
-            background-color: #d4edda;
+            background-color: #31a24c;
             border-radius: 4px;
             display: none;
         }
@@ -222,7 +122,7 @@
             text-align: center;
             padding: 60px 20px;
             background: white;
-            border: 1px solid #dbdbdb;
+            border: 1px solid var(--border-light);
             border-radius: 3px;
             margin-top: 60px;
             max-width: 500px;
@@ -231,14 +131,14 @@
         }
 
         .login-prompt h2 {
-            color: #262626;
+            color: var(--text-dark);
             margin-bottom: 16px;
             font-size: 22px;
             font-weight: 300;
         }
 
         .login-prompt p {
-            color: #8e8e8e;
+            color: var(--text-gray);
             margin-bottom: 24px;
             font-size: 14px;
         }

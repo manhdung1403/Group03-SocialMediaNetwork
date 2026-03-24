@@ -5,105 +5,205 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>Trang cá nhân | Instagram Style</title>
+    <link rel="stylesheet" href="/css/common.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        /* Reset & Base */
+        /* Profile Page Styles */
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            background-color: #fafafa;
-            margin: 0;
-            color: #262626;
+            background-color: var(--bg-lighter);
+            padding-top: 20px;
         }
 
-        .container {
-            max-width: 935px;
+        .profile-container {
+            max-width: 975px;
             margin: 0 auto;
-            padding: 30px 20px;
+            padding: 0 20px;
         }
 
-        /* Header Profile Section */
-        header {
+        /* Profile Header Section */
+        .profile-header {
             display: flex;
-            align-items: center;
-            margin-bottom: 44px;
-            gap: 30px;
+            gap: 50px;
+            margin-bottom: 60px;
+            padding-bottom: 40px;
+            border-bottom: 1px solid var(--border-light);
         }
 
-        .profile-pic {
-            width: 150px;
-            height: 150px;
+        .profile-avatar {
+            flex-shrink: 0;
+        }
+
+        #avatarImg {
+            width: 160px;
+            height: 160px;
             border-radius: 50%;
-            background: #eee;
             object-fit: cover;
-            border: 1px solid #dbdbdb;
+            border: 3px solid var(--bg-light);
         }
 
-        .profile-info {
-            flex-grow: 1;
+        .profile-info-section {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+            gap: 20px;
         }
 
+        /* Username and action buttons row */
         .username-row {
             display: flex;
             align-items: center;
-            gap: 20px;
-            margin-bottom: 20px;
+            gap: 15px;
+            flex-wrap: wrap;
         }
 
         .username-row h1 {
             font-size: 28px;
-            font-weight: 300;
+            font-weight: 200;
+            margin: 0;
+            color: var(--text-dark);
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .action-buttons button {
+            padding: 6px 16px;
+            background-color: var(--primary-blue);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .action-buttons button:hover {
+            background-color: var(--primary-blue-hover);
+            opacity: 0.9;
+        }
+
+        .action-buttons button:disabled {
+            opacity: 0.65;
+            cursor: not-allowed;
+        }
+
+        /* Edit profile button */
+        #editBtn {
+            background-color: var(--bg-white) !important;
+            color: var(--text-dark) !important;
+            border: 1px solid var(--border-light);
+        }
+
+        #editBtn:hover {
+            background-color: var(--bg-light) !important;
+        }
+
+        /* Follow button for other profiles */
+        #followBtn {
+            background-color: var(--primary-blue) !important;
+            color: white !important;
+            border: none !important;
+        }
+
+        #followBtn:hover {
+            background-color: var(--primary-blue-hover) !important;
+        }
+
+        /* Logout button */
+        #logoutBtn {
+            background-color: transparent;
+            color: var(--text-dark);
+            border: 1px solid var(--border-light);
+        }
+
+        #logoutBtn:hover {
+            background-color: var(--bg-light);
+        }
+
+        /* Stats row */
+        #userStats {
+            display: flex;
+            gap: 40px;
+            margin: 10px 0;
+        }
+
+        #userStats span {
+            font-size: 15px;
+            color: var(--text-dark);
+        }
+
+        #userStats strong {
+            font-weight: 600;
+        }
+
+        /* Bio section */
+        .bio-section {
+            margin-top: 5px;
+        }
+
+        #bioText {
+            font-size: 15px;
+            color: var(--text-dark);
+            margin: 0 0 8px 0;
+        }
+
+        #dobText {
+            font-size: 13px;
+            color: var(--text-gray);
             margin: 0;
         }
 
-        /* Buttons */
-        button {
-            background: transparent;
-            border: 1px solid #dbdbdb;
-            color: #262626;
-            padding: 5px 9px;
-            font-weight: 600;
-            font-size: 14px;
-            border-radius: 4px;
-            cursor: pointer;
-        }
-
-        #logoutBtn {
-            color: #ed4956;
-            border-color: #ed4956;
-        }
-
-        /* Grid System */
-        .tabs {
-            border-top: 1px solid #dbdbdb;
+        /* Tabs Navigation */
+        .profile-tabs {
+            border-top: 1px solid var(--border-light);
             display: flex;
             justify-content: center;
-            gap: 60px;
-            margin-bottom: 0;
+            gap: 40px;
+            margin: 0 -20px 50px;
+            padding: 0 20px;
         }
 
         .tab-item {
+            position: relative;
             text-transform: uppercase;
             font-size: 12px;
             font-weight: 600;
             letter-spacing: 1px;
-            padding: 15px 0;
-            border-top: 1px solid #dbdbdb;
+            padding: 16px 0;
             display: flex;
             align-items: center;
-            gap: 6px;
+            gap: 8px;
             cursor: pointer;
-            color: #999;
-            transition: color 0.2s;
+            color: var(--text-gray);
+            transition: color 0.3s;
+            border-bottom: 2px solid transparent;
+            margin-bottom: -1px;
+        }
+
+        .tab-item:hover {
+            color: var(--text-dark);
         }
 
         .tab-item.active-tab {
-            border-top: 1px solid #262626;
-            color: #262626;
+            color: var(--text-dark);
+            border-bottom-color: var(--text-dark);
         }
 
+        .tab-item i {
+            font-size: 14px;
+        }
+
+        /* Posts Grid */
         #posts {
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
+            grid-template-columns: repeat(auto-fill, minmax(293px, 1fr));
             gap: 28px;
+            margin-bottom: 40px;
         }
 
         .post-item {
@@ -112,6 +212,12 @@
             overflow: hidden;
             background-color: #efefef;
             cursor: pointer;
+            border-radius: 0;
+            transition: transform 0.3s;
+        }
+
+        .post-item:hover {
+            transform: scale(1.02);
         }
 
         .post-item img {
@@ -122,21 +228,19 @@
         }
 
         .post-item:hover img {
-            opacity: 0.8;
-            filter: brightness(0.8);
+            opacity: 0.7;
         }
 
         .post-overlay {
             position: absolute;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            background: linear-gradient(to top, rgba(0, 0, 0, 0.7), transparent);
-            padding: 15px;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.5);
             display: flex;
-            justify-content: space-around;
+            align-items: center;
+            justify-content: center;
+            gap: 30px;
             color: white;
-            font-size: 14px;
+            font-size: 16px;
             font-weight: 600;
             opacity: 0;
             transition: opacity 0.3s;
@@ -149,70 +253,160 @@
         .post-stat {
             display: flex;
             align-items: center;
-            gap: 5px;
+            gap: 8px;
+        }
+
+        .post-stat i {
+            font-size: 18px;
+        }
+
+        /* Empty state */
+        .empty-state {
+            grid-column: 1 / -1;
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-gray);
+        }
+
+        .empty-state i {
+            font-size: 48px;
+            margin-bottom: 16px;
+            opacity: 0.5;
+        }
+
+        .empty-state p {
+            font-size: 16px;
+            margin: 0;
         }
 
         /* Mobile responsive */
-        @media (max-width: 735px) {
+        @media (max-width: 768px) {
+            .profile-header {
+                flex-direction: column;
+                align-items: center;
+                gap: 30px;
+                text-align: center;
+            }
+
+            #avatarImg {
+                width: 120px;
+                height: 120px;
+            }
+
+            .username-row {
+                justify-content: center;
+                flex-wrap: wrap;
+            }
+
+            .username-row h1 {
+                font-size: 22px;
+                width: 100%;
+            }
+
+            .action-buttons {
+                justify-content: center;
+            }
+
+            #userStats {
+                justify-content: center;
+            }
+
+            .profile-tabs {
+                gap: 30px;
+            }
+
             #posts {
                 gap: 3px;
             }
 
-            .profile-pic {
-                width: 77px;
-                height: 77px;
+            .tab-item {
+                padding: 12px 0;
+                font-size: 11px;
+            }
+        }
+
+        @media (max-width: 600px) {
+            .profile-container {
+                padding: 0 15px;
             }
 
-            header {
+            #posts {
+                grid-template-columns: 1fr;
+                gap: 1px;
+            }
+
+            .profile-header {
+                padding-bottom: 30px;
+            }
+
+            #userStats {
+                flex-direction: column;
                 gap: 15px;
             }
 
-            .username-row {
-                flex-direction: column;
-                align-items: flex-start;
-                gap: 10px;
+            .action-buttons button {
+                flex: 1;
+                min-width: 100px;
             }
         }
     </style>
 </head>
 
 <body>
-    <div class="container">
-        <header>
-            <img id="avatarImg" src="https://via.placeholder.com/150" class="profile-pic" alt="Profile" />
+    <div class="profile-container">
+        <!-- Profile Header -->
+        <div class="profile-header">
+            <!-- Avatar -->
+            <div class="profile-avatar">
+                <img id="avatarImg" src="https://via.placeholder.com/160" alt="Profile Avatar" />
+            </div>
 
-            <section class="profile-info">
+            <!-- Profile Info -->
+            <div class="profile-info-section">
+                <!-- Username and Action Buttons -->
                 <div class="username-row">
                     <h1 id="displayUsername">...</h1>
-                    <button id="editBtn" style="display:none">Chỉnh sửa trang cá nhân</button>
-                    <button id="createPostBtn" style="display:none">Tạo bài đăng</button>
-                    <button id="followBtn" style="display:none">Theo dõi</button>
-                    <button id="logoutBtn">Đăng xuất</button>
+                    <div class="action-buttons">
+                        <button id="editBtn" style="display:none">Chỉnh sửa trang cá nhân</button>
+                        <button id="createPostBtn" style="display:none"><i class="fas fa-plus"></i> Tạo bài
+                            đăng</button>
+                        <button id="followBtn" style="display:none">Theo dõi</button>
+                        <button id="logoutBtn"><i class="fas fa-sign-out-alt"></i> Đăng xuất</button>
+                    </div>
                 </div>
-                <div id="userStats">
-                    <span id="postCount"><strong>0</strong> bài viết</span>
-                    <span id="followingCount" style="margin-left: 18px;"><strong>0</strong> đang theo dõi</span>
-                    <span id="followersCount" style="margin-left: 18px;"><strong>0</strong> người theo dõi</span>
-                </div>
-                <div id="userBio" style="margin-top: 15px; color: #262626;">
-                    <p id="bioText" style="margin: 0 0 5px 0;"></p>
-                    <p id="dobText" style="margin: 0; color: #999; font-size: 14px;"></p>
-                </div>
-            </section>
-        </header>
 
-        <div class="tabs">
+                <!-- Stats -->
+                <div id="userStats">
+                    <span><strong id="postCount">0</strong> bài viết</span>
+                    <span><strong id="followingCount">0</strong> đang theo dõi</span>
+                    <span><strong id="followersCount">0</strong> người theo dõi</span>
+                </div>
+
+                <!-- Bio -->
+                <div class="bio-section">
+                    <p id="bioText"></p>
+                    <p id="dobText"></p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="profile-tabs">
             <div class="tab-item active-tab" id="tab-posts">
+                <i class="fas fa-th"></i>
                 <span>Bài viết</span>
             </div>
             <div class="tab-item" id="tab-likes">
+                <i class="fas fa-heart"></i>
                 <span>Bài đã tim</span>
             </div>
         </div>
 
+        <!-- Posts Grid -->
         <main id="posts">
-            <div style="grid-column: 1 / -1; text-align: center; padding: 40px; color: #8e8e8e;">
-                Đang tải bài viết...
+            <div class="empty-state">
+                <i class="fas fa-image"></i>
+                <p>Đang tải bài viết...</p>
             </div>
         </main>
     </div>
@@ -226,7 +420,7 @@
         let allPosts = [];
         let currentUser = null;
         let profileUserId = null;
-        let currentTab = 'posts'; // 'posts' or 'likes'
+        let currentTab = 'posts';
 
         function renderPosts(posts) {
             const postsContainer = document.getElementById('posts');
@@ -235,7 +429,12 @@
                 const message = currentTab === 'posts'
                     ? 'Chưa có bài viết nào.'
                     : 'Chưa có bài viết đã tim nào.';
-                postsContainer.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding: 50px;">${message}</div>`;
+                postsContainer.innerHTML = `
+                    <div class="empty-state">
+                        <i class="fas fa-inbox"></i>
+                        <p>${message}</p>
+                    </div>
+                `;
                 return;
             }
 
@@ -248,11 +447,11 @@
                         <img src="${imgSrc}" alt="${escapeHtml(p.caption || '')}" title="${escapeHtml(p.caption || '')}" />
                         <div class="post-overlay">
                             <div class="post-stat">
-                                <span>❤️</span>
+                                <i class="fas fa-heart"></i>
                                 <span>${likeCount}</span>
                             </div>
                             <div class="post-stat">
-                                <span>💬</span>
+                                <i class="fas fa-comments"></i>
                                 <span>${commentCount}</span>
                             </div>
                         </div>
@@ -264,7 +463,6 @@
         function switchTab(tabName) {
             currentTab = tabName;
 
-            // Update tab styles
             document.getElementById('tab-posts').classList.remove('active-tab');
             document.getElementById('tab-likes').classList.remove('active-tab');
 
@@ -289,7 +487,6 @@
 
             currentUser = status.user;
 
-            // Determine which profile to show (self vs another user)
             const urlParams = new URLSearchParams(window.location.search);
             const targetUserId = urlParams.get('userId');
             const isOwnProfile = !targetUserId || String(targetUserId) === String(currentUser.id);
@@ -304,21 +501,17 @@
             const userProfile = await profileResp.json();
             profileUserId = userProfile.id;
 
-            // Display user info
             document.getElementById('displayUsername').textContent = userProfile.username || currentUser.username;
-            document.getElementById('avatarImg').src = userProfile.avatar || 'https://via.placeholder.com/150';
+            document.getElementById('avatarImg').src = userProfile.avatar || 'https://via.placeholder.com/160';
 
-            // Display bio
             const bioText = userProfile.bio ? escapeHtml(userProfile.bio) : '(Chưa có bio)';
             document.getElementById('bioText').textContent = bioText;
 
-            // Display following/followers counts
             const followingCount = typeof userProfile.following_count === 'number' ? userProfile.following_count : 0;
             const followersCount = typeof userProfile.followers_count === 'number' ? userProfile.followers_count : 0;
             document.getElementById('followingCount').innerHTML = `<strong>${followingCount}</strong> đang theo dõi`;
             document.getElementById('followersCount').innerHTML = `<strong>${followersCount}</strong> người theo dõi`;
 
-            // Display date of birth
             if (userProfile.dob) {
                 const dob = new Date(userProfile.dob);
                 const dobStr = dob.toLocaleDateString('vi-VN');
@@ -327,7 +520,6 @@
                 document.getElementById('dobText').textContent = 'Ngày sinh: (Chưa cập nhật)';
             }
 
-            // Show/hide action buttons based on whether it's own profile or another's profile
             const editBtn = document.getElementById('editBtn');
             const createPostBtn = document.getElementById('createPostBtn');
             const followBtn = document.getElementById('followBtn');
@@ -343,11 +535,13 @@
                 followBtn.textContent = userProfile.is_following ? 'Đang theo dõi' : 'Theo dõi';
             }
 
-            // Load posts (only show posts for the profile owner)
             const postsResp = await fetch('/api/posts', { credentials: 'include' });
             const postsContainer = document.getElementById('posts');
 
-            if (!postsResp.ok) { postsContainer.innerHTML = '<div>Lỗi tải dữ liệu.</div>'; return; }
+            if (!postsResp.ok) {
+                postsContainer.innerHTML = '<div class="empty-state"><i class="fas fa-exclamation-circle"></i><p>Lỗi tải dữ liệu.</p></div>';
+                return;
+            }
 
             allPosts = await postsResp.json();
             const profileOwnerId = isOwnProfile ? currentUser.id : targetUserId;
