@@ -23,4 +23,4 @@ function killPort(port) {
 }
 
 killPort(PORT);
-require('./server.js');
+require('./server_mvc.js');
