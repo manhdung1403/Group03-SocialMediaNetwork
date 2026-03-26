@@ -1,9 +1,9 @@
 const sql = require('mssql');
-const dbConfig = require('../config/db');
+const { getPool } = require('../models/db');
 
 async function getProfile(req, res) {
     try {
-        const pool = await sql.connect(dbConfig);
+        const pool = await getPool();
         const result = await pool.request()
             .input('userId', sql.Int, req.session.userId)
             .query(`SELECT id, username, email, avatar, bio, dob, created_at, is_private,
@@ -36,7 +36,7 @@ async function updateProfile(req, res) {
             return res.status(400).json({ error: 'Định dạng ngày sinh không hợp lệ' });
         }
 
-        const pool = await sql.connect(dbConfig);
+        const pool = await getPool();
         const emailCheck = await pool.request()
             .input('email', sql.VarChar, email)
             .input('userId', sql.Int, userId)
@@ -90,7 +90,7 @@ async function updatePrivacy(req, res) {
         const { is_private } = req.body;
         const userId = req.session.userId;
 
-        const pool = await sql.connect(dbConfig);
+        const pool = await getPool();
         await pool.request()
             .input('is_private', sql.Bit, is_private ? 1 : 0)
             .input('userId', sql.Int, userId)
@@ -108,7 +108,7 @@ async function listUsers(req, res) {
         const me = req.session.userId;
         const search = (req.query.search || '').trim();
 
-        const pool = await sql.connect(dbConfig);
+        const pool = await getPool();
         let request = pool.request().input('me', sql.Int, me);
 
         let whereClause = 'WHERE u.id <> @me';
@@ -143,7 +143,7 @@ async function getUserById(req, res) {
         const targetId = parseInt(req.params.id, 10);
         if (isNaN(targetId)) return res.status(400).json({ error: 'userId không hợp lệ' });
 
-        const pool = await sql.connect(dbConfig);
+        const pool = await getPool();
         const result = await pool.request()
             .input('me', sql.Int, me)
             .input('targetId', sql.Int, targetId)

@@ -1,5 +1,5 @@
 const sql = require('mssql');
-const dbConfig = require('../config/db');
+const { getPool } = require('../models/db');
 
 async function follow(req, res) {
     try {
@@ -7,7 +7,7 @@ async function follow(req, res) {
         const { userId } = req.body;
         if (!userId) return res.status(400).json({ error: 'userId required' });
 
-        const pool = await sql.connect(dbConfig);
+        const pool = await getPool();
         await pool.request()
             .input('me', sql.Int, me)
             .input('userId', sql.Int, userId)
@@ -26,7 +26,7 @@ async function unfollow(req, res) {
         const { userId } = req.body;
         if (!userId) return res.status(400).json({ error: 'userId required' });
 
-        const pool = await sql.connect(dbConfig);
+        const pool = await getPool();
         await pool.request()
             .input('me', sql.Int, me)
             .input('userId', sql.Int, userId)

@@ -1,5 +1,5 @@
 const sql = require('mssql');
-const dbConfig = require('../config/db');
+const { getPool } = require('../models/db');
 
 module.exports = function createChatController({ onlineUsers, emitToUser, io }) {
     async function getMessagesWithReceiver(req, res) {
@@ -7,7 +7,7 @@ module.exports = function createChatController({ onlineUsers, emitToUser, io }) 
             const senderId = req.session.userId;
             const receiverId = req.params.receiverId;
 
-            const pool = await sql.connect(dbConfig);
+            const pool = await getPool();
             const result = await pool.request()
                 .input('sId', sql.Int, senderId)
                 .input('rId', sql.Int, receiverId)
@@ -25,7 +25,7 @@ module.exports = function createChatController({ onlineUsers, emitToUser, io }) 
     async function listConversations(req, res) {
         try {
             const userId = req.session.userId;
-            const pool = await sql.connect(dbConfig);
+            const pool = await getPool();
             const result = await pool.request()
                 .input('userId', sql.Int, userId)
                 .query(`
@@ -60,7 +60,7 @@ module.exports = function createChatController({ onlineUsers, emitToUser, io }) 
     async function unreadTotal(req, res) {
         try {
             const userId = req.session.userId;
-            const pool = await sql.connect(dbConfig);
+            const pool = await getPool();
             const result = await pool.request()
                 .input('userId', sql.Int, userId)
                 .query(`
@@ -87,7 +87,7 @@ module.exports = function createChatController({ onlineUsers, emitToUser, io }) 
         try {
             const convId = parseInt(req.params.id, 10);
             const userId = req.session.userId;
-            const pool = await sql.connect(dbConfig);
+            const pool = await getPool();
 
             const check = await pool.request()
                 .input('convId', sql.Int, convId)
@@ -113,7 +113,7 @@ module.exports = function createChatController({ onlineUsers, emitToUser, io }) 
     async function listConversationMessages(req, res) {
         try {
             const convId = parseInt(req.params.id, 10);
-            const pool = await sql.connect(dbConfig);
+            const pool = await getPool();
             const result = await pool.request()
                 .input('convId', sql.Int, convId)
                 .query(`
@@ -146,7 +146,7 @@ module.exports = function createChatController({ onlineUsers, emitToUser, io }) 
         try {
             const { participantIds, title, isGroup } = req.body;
             const groupFlag = isGroup ? 1 : 0;
-            const pool = await sql.connect(dbConfig);
+            const pool = await getPool();
 
             const users = Array.from(new Set([req.session.userId].concat(participantIds || [])))
                 .map(x => parseInt(x, 10));
@@ -192,7 +192,7 @@ module.exports = function createChatController({ onlineUsers, emitToUser, io }) 
     async function listParticipants(req, res) {
         try {
             const convId = parseInt(req.params.id, 10);
-            const pool = await sql.connect(dbConfig);
+            const pool = await getPool();
             const result = await pool.request()
                 .input('convId', sql.Int, convId)
                 .query(`
@@ -216,7 +216,7 @@ module.exports = function createChatController({ onlineUsers, emitToUser, io }) 
         try {
             const convId = parseInt(req.params.id, 10);
             const userId = req.session.userId;
-            const pool = await sql.connect(dbConfig);
+            const pool = await getPool();
 
             const check = await pool.request()
                 .input('convId', sql.Int, convId)

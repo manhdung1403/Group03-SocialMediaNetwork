@@ -1,9 +1,9 @@
 const sql = require('mssql');
-const dbConfig = require('../config/db');
+const { getPool } = require('../models/db');
 
 async function debugPosts(req, res) {
     try {
-        const pool = await sql.connect(dbConfig);
+        const pool = await getPool();
         const result = await pool.request()
             .input('currentUserId', sql.Int, req.session.userId)
             .query(`
@@ -44,7 +44,7 @@ async function debugPosts(req, res) {
 
 async function getPosts(req, res) {
     try {
-        const pool = await sql.connect(dbConfig);
+        const pool = await getPool();
         const result = await pool.request()
             .input('currentUserId', sql.Int, req.session.userId)
             .query(`
@@ -97,7 +97,7 @@ async function createPost(req, res) {
             return res.status(400).json({ error: 'URL ảnh là bắt buộc' });
         }
 
-        const pool = await sql.connect(dbConfig);
+        const pool = await getPool();
         const result = await pool.request()
             .input('user_id', sql.Int, userId)
             .input('image_url', sql.NVarChar(sql.MAX), image_url)
@@ -123,7 +123,7 @@ async function updatePost(req, res) {
 
         if (isNaN(postId)) return res.status(400).json({ error: 'ID bài viết không hợp lệ' });
 
-        const pool = await sql.connect(dbConfig);
+        const pool = await getPool();
         const check = await pool.request()
             .input('post_id', sql.Int, postId)
             .input('user_id', sql.Int, userId)
@@ -152,7 +152,7 @@ async function toggleLike(req, res) {
 
         if (isNaN(postId)) return res.status(400).json({ error: 'ID bài viết không hợp lệ' });
 
-        const pool = await sql.connect(dbConfig);
+        const pool = await getPool();
         const existing = await pool.request()
             .input('post_id', sql.Int, postId)
             .input('user_id', sql.Int, userId)

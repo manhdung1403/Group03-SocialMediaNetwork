@@ -1,6 +1,6 @@
 const bcrypt = require('bcrypt');
 const sql = require('mssql');
-const dbConfig = require('../config/db');
+const { getPool } = require('../models/db');
 
 async function register(req, res) {
     try {
@@ -17,7 +17,7 @@ async function register(req, res) {
             return res.status(400).json({ error: 'Ngày sinh không được sau ngày hiện tại' });
         }
 
-        const pool = await sql.connect(dbConfig);
+        const pool = await getPool();
         const checkResult = await pool.request()
             .input('email', sql.VarChar, email)
             .query('SELECT id FROM Users WHERE email = @email');
@@ -54,7 +54,7 @@ async function login(req, res) {
             return res.status(400).json({ error: 'Vui lòng điền đầy đủ thông tin' });
         }
 
-        const pool = await sql.connect(dbConfig);
+        const pool = await getPool();
         const result = await pool.request()
             .input('email', sql.VarChar, email)
             .query('SELECT id, username, email, password FROM Users WHERE email = @email');
@@ -84,7 +84,7 @@ async function logout(req, res) {
     const userId = req.session && req.session.userId;
     if (userId) {
         try {
-            const pool = await sql.connect(dbConfig);
+            const pool = await getPool();
             await pool.request()
                 .input('uid', sql.Int, userId)
                 .query(`UPDATE Users SET last_seen = GETDATE() WHERE id = @uid`);
