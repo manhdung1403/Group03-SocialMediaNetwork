@@ -321,10 +321,14 @@
             color: #8e8e8e;
             font-size: 14px;
         }
+
         /* Edit Modal Styles */
         .edit-modal-overlay {
             position: fixed;
-            top: 0; left: 0; right: 0; bottom: 0;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
             background: rgba(0, 0, 0, 0.6);
             display: none;
             align-items: center;
@@ -332,22 +336,25 @@
             z-index: 1000;
             backdrop-filter: blur(4px);
         }
+
         .edit-modal {
             background: white;
             border-radius: 12px;
             padding: 24px;
             width: 90%;
             max-width: 500px;
-            box-shadow: 0 4px 24px rgba(0,0,0,0.15);
+            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.15);
             display: flex;
             flex-direction: column;
             gap: 16px;
         }
+
         .edit-modal h2 {
             margin: 0;
             font-size: 20px;
             color: var(--text-dark, #262626);
         }
+
         .edit-modal textarea {
             width: 100%;
             min-height: 100px;
@@ -358,15 +365,18 @@
             font-family: inherit;
             font-size: 14px;
         }
+
         .edit-modal textarea:focus {
             outline: none;
             border-color: var(--primary-blue, #0095f6);
         }
+
         .edit-modal-actions {
             display: flex;
             justify-content: flex-end;
             gap: 12px;
         }
+
         .edit-modal-actions button {
             padding: 8px 16px;
             border-radius: 6px;
@@ -374,18 +384,22 @@
             cursor: pointer;
             border: none;
         }
+
         .edit-modal-cancel {
             background-color: transparent;
             color: var(--text-dark, #262626);
             border: 1px solid var(--border-light, #dbdbdb) !important;
         }
+
         .edit-modal-cancel:hover {
             background-color: var(--bg-light, #fafafa);
         }
+
         .edit-modal-save {
             background-color: var(--primary-blue, #0095f6);
             color: white;
         }
+
         .edit-modal-save:hover {
             background-color: #1877f2;
         }
@@ -452,6 +466,11 @@
         let isLoggedIn = false;
         let currentUser = null;
         let notificationSocket = null;
+
+        function escapeHtml(str) {
+            if (!str && str !== 0) return '';
+            return String(str).replace(/[&<>\"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+        }
 
         // Lấy base URL
         const baseUrl = window.location.origin === 'http://127.0.0.1:5500' || window.location.protocol === 'file:'
@@ -648,7 +667,7 @@
                 });
             } catch (error) {
                 console.error("Lỗi khi lấy dữ liệu:", error);
-                document.getElementById('postContainer').innerHTML = '<div class="empty-state" style="color: #ed4956;">Không thể kết nối với server.</div>';
+                document.getElementById('postContainer').innerHTML = `<div class="empty-state" style="color: #ed4956;">Không thể kết nối với server.<br><small style='color:#b00;'>${escapeHtml(error.message || String(error))}</small></div>`;
             }
         }
 
@@ -778,7 +797,7 @@
         document.getElementById('saveEditBtnFeed').addEventListener('click', async () => {
             if (!currentEditPostIdFeed) return;
             const newCaption = document.getElementById('editPostCaptionFeed').value;
-            
+
             try {
                 const response = await fetch(`${baseUrl}/api/posts/${currentEditPostIdFeed}`, {
                     method: 'PUT',
@@ -788,7 +807,7 @@
                 });
                 const data = await response.json();
                 if (data.success) {
-                    fetchPosts(); 
+                    fetchPosts();
                     document.getElementById('editPostModalFeed').style.display = 'none';
                     currentEditPostIdFeed = null;
                 } else {

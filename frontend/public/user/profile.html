@@ -231,6 +231,17 @@
             opacity: 0.7;
         }
 
+        .post-privacy-icon {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: rgba(0, 0, 0, 0.6);
+            color: white;
+            padding: 4px 6px;
+            border-radius: 50%;
+            font-size: 12px;
+        }
+
         .post-overlay {
             position: absolute;
             inset: 0;
@@ -349,10 +360,14 @@
                 min-width: 100px;
             }
         }
+
         /* Edit Modal Styles */
         .edit-modal-overlay {
             position: fixed;
-            top: 0; left: 0; right: 0; bottom: 0;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
             background: rgba(0, 0, 0, 0.6);
             display: none;
             align-items: center;
@@ -360,22 +375,36 @@
             z-index: 1000;
             backdrop-filter: blur(4px);
         }
+
         .edit-modal {
             background: white;
             border-radius: 12px;
             padding: 24px;
             width: 90%;
-            max-width: 500px;
-            box-shadow: 0 4px 24px rgba(0,0,0,0.15);
+            max-width: 600px;
+            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.15);
             display: flex;
             flex-direction: column;
-            gap: 16px;
+            gap: 20px;
         }
+
         .edit-modal h2 {
             margin: 0;
             font-size: 20px;
             color: var(--text-dark, #262626);
         }
+
+        .edit-modal .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .edit-modal label {
+            font-weight: 600;
+            color: var(--text-dark, #262626);
+        }
+
         .edit-modal textarea {
             width: 100%;
             min-height: 100px;
@@ -386,15 +415,54 @@
             font-family: inherit;
             font-size: 14px;
         }
+
         .edit-modal textarea:focus {
             outline: none;
             border-color: var(--primary-blue, #0095f6);
         }
+
+        .edit-modal .image-upload {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .edit-modal .current-image {
+            width: 100px;
+            height: 100px;
+            border-radius: 8px;
+            object-fit: cover;
+            border: 1px solid var(--border-light, #dbdbdb);
+        }
+
+        .edit-modal .upload-input {
+            padding: 8px;
+            border: 1px solid var(--border-light, #dbdbdb);
+            border-radius: 6px;
+        }
+
+        .edit-modal .privacy-toggle {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .edit-modal .privacy-toggle input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+        }
+
         .edit-modal-actions {
             display: flex;
-            justify-content: flex-end;
+            justify-content: space-between;
             gap: 12px;
         }
+
+        .edit-modal-actions .left-actions {
+            display: flex;
+            gap: 12px;
+        }
+
         .edit-modal-actions button {
             padding: 8px 16px;
             border-radius: 6px;
@@ -402,20 +470,33 @@
             cursor: pointer;
             border: none;
         }
+
         .edit-modal-cancel {
             background-color: transparent;
             color: var(--text-dark, #262626);
             border: 1px solid var(--border-light, #dbdbdb) !important;
         }
+
         .edit-modal-cancel:hover {
             background-color: var(--bg-light, #fafafa);
         }
+
         .edit-modal-save {
             background-color: var(--primary-blue, #0095f6);
             color: white;
         }
+
         .edit-modal-save:hover {
             background-color: #1877f2;
+        }
+
+        .edit-modal-delete {
+            background-color: #dc3545;
+            color: white;
+        }
+
+        .edit-modal-delete:hover {
+            background-color: #c82333;
         }
     </style>
 </head>
@@ -436,9 +517,11 @@
                     <h1 id="displayUsername">...</h1>
                     <div class="action-buttons">
                         <button id="editBtn" style="display:none">Chỉnh sửa trang cá nhân</button>
-                        <button id="createPostBtn" style="display:none"><i class="fas fa-plus"></i> Tạo bài đăng</button>
+                        <button id="createPostBtn" style="display:none"><i class="fas fa-plus"></i> Tạo bài
+                            đăng</button>
                         <button id="followBtn" style="display:none">Theo dõi</button>
-                        <button id="togglePrivacyBtn" class="btn" style="display:none; font-weight:600;"><i class="fas fa-lock"></i> <span id="privacyStatusText">Công khai</span></button>
+                        <button id="togglePrivacyBtn" class="btn" style="display:none; font-weight:600;"><i
+                                class="fas fa-lock"></i> <span id="privacyStatusText">Công khai</span></button>
                         <button id="logoutBtn"><i class="fas fa-sign-out-alt"></i> Đăng xuất</button>
                     </div>
                 </div>
@@ -483,10 +566,32 @@
     <div class="edit-modal-overlay" id="editPostModalProfile">
         <div class="edit-modal">
             <h2>Chỉnh sửa bài viết</h2>
-            <textarea id="editPostCaptionProfile" placeholder="Nhập nội dung mới..."></textarea>
+
+            <div class="form-group">
+                <label for="editPostCaptionProfile">Nội dung:</label>
+                <textarea id="editPostCaptionProfile" placeholder="Nhập nội dung mới..."></textarea>
+            </div>
+
+            <div class="form-group image-upload">
+                <label>Ảnh hiện tại:</label>
+                <img id="editPostCurrentImageProfile" class="current-image" src="" alt="Current image" />
+                <label for="editPostImageProfile">Upload ảnh mới (tùy chọn):</label>
+                <input type="file" id="editPostImageProfile" class="upload-input" accept="image/*" />
+            </div>
+
+            <div class="form-group privacy-toggle">
+                <input type="checkbox" id="editPostPrivacyProfile" />
+                <label for="editPostPrivacyProfile">Bài viết riêng tư (chỉ mình tôi xem được)</label>
+            </div>
+
             <div class="edit-modal-actions">
-                <button class="edit-modal-cancel" id="cancelEditBtnProfile">Hủy</button>
-                <button class="edit-modal-save" id="saveEditBtnProfile">Lưu thay đổi</button>
+                <div class="left-actions">
+                    <button class="edit-modal-delete" id="deletePostBtnProfile">Xóa bài viết</button>
+                </div>
+                <div>
+                    <button class="edit-modal-cancel" id="cancelEditBtnProfile">Hủy</button>
+                    <button class="edit-modal-save" id="saveEditBtnProfile">Lưu thay đổi</button>
+                </div>
             </div>
         </div>
     </div>
@@ -522,9 +627,12 @@
                 const imgSrc = p.image_url ? escapeHtml(p.image_url) : 'https://via.placeholder.com/500?text=No+Image';
                 const likeCount = p.like_count || 0;
                 const commentCount = p.comment_count || 0;
+                const isPrivate = (p.is_private || 0) === 1;
+                const privacyIcon = isPrivate ? '<i class="fas fa-lock post-privacy-icon" title="Bài viết riêng tư"></i>' : '';
                 return `
                     <div class="post-item">
                         <img src="${imgSrc}" alt="${escapeHtml(p.caption || '')}" title="${escapeHtml(p.caption || '')}" />
+                        ${privacyIcon}
                         <div class="post-overlay">
                             <div class="post-stat">
                                 <i class="fas fa-heart"></i>
@@ -613,7 +721,7 @@
                 editBtn.style.display = 'inline-block';
                 createPostBtn.style.display = 'inline-block';
                 followBtn.style.display = 'none';
-                
+
                 const privacyBtn = document.getElementById('togglePrivacyBtn');
                 privacyBtn.style.display = 'inline-block';
                 privacyBtn.dataset.isPrivate = userProfile.is_private ? '1' : '0';
@@ -645,7 +753,8 @@
             const postsResp = await fetch('/api/posts', { credentials: 'include' });
 
             if (!postsResp.ok) {
-                postsContainer.innerHTML = '<div class="empty-state"><i class="fas fa-exclamation-circle"></i><p>Lỗi tải dữ liệu.</p></div>';
+                const errorText = await postsResp.text();
+                postsContainer.innerHTML = `<div class="empty-state"><i class="fas fa-exclamation-circle"></i><p>Lỗi tải dữ liệu: ${postsResp.status} ${postsResp.statusText}</p><p style="font-size:12px;color:#b00;">${escapeHtml(errorText)}</p></div>`;
                 return;
             }
 
@@ -681,7 +790,7 @@
                     } else {
                         alert('Lỗi: ' + data.error);
                     }
-                } catch(e) { console.error('Error toggling privacy:', e); }
+                } catch (e) { console.error('Error toggling privacy:', e); }
             });
         }
 
@@ -717,47 +826,124 @@
         });
 
         let currentEditPostIdProfile = null;
+        let currentEditPostDataProfile = null;
 
         document.getElementById('cancelEditBtnProfile').addEventListener('click', () => {
             document.getElementById('editPostModalProfile').style.display = 'none';
             currentEditPostIdProfile = null;
+            currentEditPostDataProfile = null;
+            // Reset form
+            document.getElementById('editPostCaptionProfile').value = '';
+            document.getElementById('editPostImageProfile').value = '';
+            document.getElementById('editPostCurrentImageProfile').src = '';
+            document.getElementById('editPostPrivacyProfile').checked = false;
         });
 
         document.getElementById('saveEditBtnProfile').addEventListener('click', async () => {
             if (!currentEditPostIdProfile) return;
+
             const newCaption = document.getElementById('editPostCaptionProfile').value;
-            const editBtnEl = document.querySelector(`.edit-post-btn-profile[data-post-id="${currentEditPostIdProfile}"]`);
-            const oldCaption = editBtnEl ? decodeURIComponent(editBtnEl.getAttribute('data-caption')) : '';
-            
-            if (newCaption === oldCaption) {
-                document.getElementById('editPostModalProfile').style.display = 'none';
-                currentEditPostIdProfile = null;
-                return;
-            }
+            const isPrivate = document.getElementById('editPostPrivacyProfile').checked;
+            const imageFile = document.getElementById('editPostImageProfile').files[0];
 
             try {
+                let imageUrl = currentEditPostDataProfile.image_url;
+
+                // Upload new image if selected
+                if (imageFile) {
+                    const formData = new FormData();
+                    formData.append('image', imageFile);
+
+                    const uploadResp = await fetch('/api/upload-image', {
+                        method: 'POST',
+                        body: formData,
+                        credentials: 'include'
+                    });
+
+                    if (uploadResp.ok) {
+                        const uploadData = await uploadResp.json();
+                        imageUrl = uploadData.imageUrl;
+                    } else {
+                        alert('Lỗi upload ảnh mới');
+                        return;
+                    }
+                }
+
+                // Update post
+                const updateData = { caption: newCaption };
+                if (imageFile || currentEditPostDataProfile.image_url !== imageUrl) {
+                    updateData.image_url = imageUrl;
+                }
+
                 const response = await fetch(`/api/posts/${currentEditPostIdProfile}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ caption: newCaption }),
+                    body: JSON.stringify(updateData),
                     credentials: 'include'
                 });
+
                 const data = await response.json();
                 if (data.success) {
+                    // Update privacy if changed
+                    const currentPrivate = currentEditPostDataProfile.is_private || 0;
+                    if ((isPrivate ? 1 : 0) !== currentPrivate) {
+                        await fetch(`/api/posts/${currentEditPostIdProfile}/privacy`, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ is_private: isPrivate ? 1 : 0 }),
+                            credentials: 'include'
+                        });
+                    }
+
+                    // Update local data
                     const postIndex = allPosts.findIndex(p => String(p.id) === String(currentEditPostIdProfile));
                     if (postIndex > -1) {
                         allPosts[postIndex].caption = newCaption;
-                        // update DOM data attribute to avoid reset
-                        if(editBtnEl) editBtnEl.setAttribute('data-caption', encodeURIComponent(newCaption));
-                        switchTab(currentTab);
+                        allPosts[postIndex].image_url = imageUrl;
+                        allPosts[postIndex].is_private = isPrivate ? 1 : 0;
                     }
+
+                    switchTab(currentTab);
                     document.getElementById('editPostModalProfile').style.display = 'none';
                     currentEditPostIdProfile = null;
+                    currentEditPostDataProfile = null;
                 } else {
                     alert('Lỗi: ' + data.error);
                 }
             } catch (err) {
                 console.error('Lỗi khi sửa bài:', err);
+                alert('Lỗi khi sửa bài viết');
+            }
+        });
+
+        document.getElementById('deletePostBtnProfile').addEventListener('click', async () => {
+            if (!currentEditPostIdProfile) return;
+
+            if (!confirm('Bạn có chắc muốn xóa bài viết này? Hành động này không thể hoàn tác.')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/posts/${currentEditPostIdProfile}`, {
+                    method: 'DELETE',
+                    credentials: 'include'
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    // Remove from local data
+                    allPosts = allPosts.filter(p => String(p.id) !== String(currentEditPostIdProfile));
+
+                    switchTab(currentTab);
+                    document.getElementById('editPostModalProfile').style.display = 'none';
+                    currentEditPostIdProfile = null;
+                    currentEditPostDataProfile = null;
+                } else {
+                    alert('Lỗi: ' + data.error);
+                }
+            } catch (err) {
+                console.error('Lỗi khi xóa bài:', err);
+                alert('Lỗi khi xóa bài viết');
             }
         });
 
@@ -765,6 +951,7 @@
             if (e.target.id === 'editPostModalProfile') {
                 document.getElementById('editPostModalProfile').style.display = 'none';
                 currentEditPostIdProfile = null;
+                currentEditPostDataProfile = null;
                 return;
             }
 
@@ -772,8 +959,19 @@
             if (editBtn) {
                 e.stopPropagation();
                 currentEditPostIdProfile = editBtn.getAttribute('data-post-id');
-                const oldCaption = decodeURIComponent(editBtn.getAttribute('data-caption'));
-                document.getElementById('editPostCaptionProfile').value = oldCaption;
+
+                // Find post data
+                const post = allPosts.find(p => String(p.id) === String(currentEditPostIdProfile));
+                if (!post) return;
+
+                currentEditPostDataProfile = { ...post };
+
+                // Populate modal
+                document.getElementById('editPostCaptionProfile').value = post.caption || '';
+                document.getElementById('editPostCurrentImageProfile').src = post.image_url || 'https://via.placeholder.com/100';
+                document.getElementById('editPostPrivacyProfile').checked = (post.is_private || 0) === 1;
+                document.getElementById('editPostImageProfile').value = '';
+
                 document.getElementById('editPostModalProfile').style.display = 'flex';
                 document.getElementById('editPostCaptionProfile').focus();
             }

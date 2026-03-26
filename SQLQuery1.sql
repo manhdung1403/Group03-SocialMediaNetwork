@@ -136,3 +136,5 @@ BEGIN
     WHERE m.conversation_id = @conversationId
     ORDER BY m.created_at ASC
 END
+
+"ALTER TABLE Posts ADD is_private BIT DEFAULT 0;" 
