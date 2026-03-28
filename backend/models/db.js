@@ -12,5 +12,5 @@ async function getPool() {
     return poolPromise;
 }
 
-module.exports = { getPool };
+module.exports = { getPool, sql };
 

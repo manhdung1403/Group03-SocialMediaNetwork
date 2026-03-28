@@ -1,0 +1,50 @@
+const PostModel = require('../models/postModel');
+
+const PostService = {
+    async getPosts(currentUserId) {
+        return await PostModel.getAll(currentUserId);
+    },
+
+    async createPost(userId, image_url, caption) {
+        if (!image_url) {
+            throw { statusCode: 400, message: 'URL ảnh là bắt buộc' };
+        }
+
+        const post = await PostModel.create(userId, image_url, caption);
+        return post;
+    },
+
+    async updatePost(postId, userId, { caption, image_url }) {
+        // Check ownership
+        const exists = await PostModel.findById(postId, userId);
+        if (!exists) {
+            throw { statusCode: 403, message: 'Không có quyền sửa bài viết này hoặc bài viết không tồn tại' };
+        }
+
+        await PostModel.update(postId, userId, { caption, image_url });
+        return { success: true, message: 'Cập nhật thành công' };
+    },
+
+    async deletePost(postId, userId) {
+        const deleted = await PostModel.delete(postId, userId);
+        if (!deleted) {
+            throw { statusCode: 403, message: 'Không có quyền xóa bài viết này hoặc bài viết không tồn tại' };
+        }
+        return { success: true, message: 'Xóa bài viết thành công' };
+    },
+
+    async toggleLike(postId, userId) {
+        const result = await PostModel.toggleLike(postId, userId);
+        return { success: true, ...result };
+    },
+
+    async togglePrivacy(postId, userId) {
+        const newPrivate = await PostModel.togglePrivacy(postId, userId);
+        if (newPrivate === null) {
+            throw { statusCode: 403, message: 'Không có quyền sửa bài viết này hoặc bài viết không tồn tại' };
+        }
+        return { success: true, message: 'Cập nhật chế độ riêng tư thành công', is_private: newPrivate };
+    }
+};
+
+module.exports = PostService;

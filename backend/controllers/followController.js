@@ -1,40 +1,24 @@
-const sql = require('mssql');
-const { getPool } = require('../models/db');
+const FollowService = require('../services/followService');
 
 async function follow(req, res) {
     try {
-        const me = req.session.userId;
         const { userId } = req.body;
-        if (!userId) return res.status(400).json({ error: 'userId required' });
-
-        const pool = await getPool();
-        await pool.request()
-            .input('me', sql.Int, me)
-            .input('userId', sql.Int, userId)
-            .query(`IF NOT EXISTS (SELECT 1 FROM Follows WHERE follower_id=@me AND following_id=@userId)
-                INSERT INTO Follows (follower_id, following_id) VALUES (@me, @userId)`);
-
-        return res.json({ success: true });
+        const result = await FollowService.follow(req.session.userId, userId);
+        return res.json(result);
     } catch (err) {
-        return res.status(500).json({ error: err.message });
+        const statusCode = err.statusCode || 500;
+        return res.status(statusCode).json({ error: err.message });
     }
 }
 
 async function unfollow(req, res) {
     try {
-        const me = req.session.userId;
         const { userId } = req.body;
-        if (!userId) return res.status(400).json({ error: 'userId required' });
-
-        const pool = await getPool();
-        await pool.request()
-            .input('me', sql.Int, me)
-            .input('userId', sql.Int, userId)
-            .query(`DELETE FROM Follows WHERE follower_id=@me AND following_id=@userId`);
-
-        return res.json({ success: true });
+        const result = await FollowService.unfollow(req.session.userId, userId);
+        return res.json(result);
     } catch (err) {
-        return res.status(500).json({ error: err.message });
+        const statusCode = err.statusCode || 500;
+        return res.status(statusCode).json({ error: err.message });
     }
 }
 

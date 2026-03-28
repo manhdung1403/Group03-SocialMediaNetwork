@@ -7,10 +7,19 @@ const session = require('express-session');
 const path = require('path');
 const multer = require('multer');
 const fs = require('fs');
+
+// Import config
 const dbConfig = require('./config/db');
 
+// Import routes
 const createApiRouter = require('./routes/apiRouter');
+
+// Import socket
 const initChatSocket = require('./socket/chatSocket');
+
+// Import middlewares
+const errorHandler = require('./middlewares/errorHandler');
+const { requestLogger } = require('./middlewares/logger');
 
 const app = express();
 const server = http.createServer(app);
@@ -25,6 +34,7 @@ const io = new Server(server, {
 });
 
 // --- MIDDLEWARE ---
+app.use(requestLogger);
 app.use(express.json({ limit: '50mb' }));
 app.use(cors({
     origin: (o, cb) => cb(null, !o || /^https?:\/\/localhost(:\d+)?$/.test(o)),
@@ -44,7 +54,7 @@ const sessionMiddleware = session({
 });
 app.use(sessionMiddleware);
 
-// Chia sẻ session với Socket.IO
+// Share session with Socket.IO
 io.use((socket, next) => {
     sessionMiddleware(socket.request, {}, next);
 });
@@ -78,25 +88,18 @@ function emitToUser(userId, event, data) {
     if (ids) ids.forEach(sid => io.to(sid).emit(event, data));
 }
 
-initChatSocket(io, { sql, dbConfig, onlineUsers, userSockets, emitToUser });
+initChatSocket(io, { dbConfig, onlineUsers, userSockets, emitToUser });
 
 // REST API routes (MVC)
 app.use(createApiRouter({ upload, onlineUsers, emitToUser, io }));
 
-// ERROR HANDLERS
+// Handle 404 for API routes
 app.use('/api', (req, res) => {
     res.status(404).json({ error: 'API không tồn tại' });
 });
 
-app.use((err, req, res, next) => {
-    console.error('Lỗi middleware:', err);
-    if (err && err.type === 'entity.too.large') {
-        return res.status(413).json({ error: 'Payload quá lớn (tối đa 50MB).' });
-    }
-    res.status(500).json({
-        error: 'Lỗi server: ' + (err && err.message ? err.message : 'Không xác định')
-    });
-});
+// Global error handler
+app.use(errorHandler);
 
 // START SERVER
 const PORT = parseInt(process.env.PORT || '3000', 10);

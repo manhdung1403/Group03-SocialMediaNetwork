@@ -1,4 +1,7 @@
-module.exports = function initChatSocket(io, { sql, dbConfig, onlineUsers, userSockets, emitToUser }) {
+const { getPool, sql } = require('../models/db');
+const dbConfig = require('../config/db');
+
+module.exports = function initChatSocket(io, { dbConfig, onlineUsers, userSockets, emitToUser }) {
     io.on('connection', (socket) => {
         console.log(`⚡ Kết nối mới: ${socket.id}`);
 
@@ -21,7 +24,7 @@ module.exports = function initChatSocket(io, { sql, dbConfig, onlineUsers, userS
             const { senderId, receiverId, text, replyToId, conversationId, imageUrl } = data;
             try {
                 const imgParam = (imageUrl && typeof imageUrl === 'string' && imageUrl.startsWith('data:')) ? null : imageUrl;
-                const pool = await sql.connect(dbConfig);
+                const pool = await getPool();
 
                 // Nếu dùng conversationId mà receiverId null, lấy 1 participant khác làm receiver
                 let recvId = receiverId;
@@ -98,7 +101,7 @@ module.exports = function initChatSocket(io, { sql, dbConfig, onlineUsers, userS
 
         socket.on('read_message', async (data) => {
             try {
-                const pool = await sql.connect(dbConfig);
+                const pool = await getPool();
                 await pool.request()
                     .input('messageId', sql.Int, data.messageId)
                     .query(`UPDATE Messages SET seen = 1, seen_at = GETDATE() WHERE id = @messageId`);
@@ -112,7 +115,7 @@ module.exports = function initChatSocket(io, { sql, dbConfig, onlineUsers, userS
 
         socket.on('reaction', async (data) => {
             try {
-                const pool = await sql.connect(dbConfig);
+                const pool = await getPool();
                 await pool.request()
                     .input('messageId', sql.Int, data.messageId)
                     .input('emoji', sql.NVarChar, data.emoji)
@@ -138,7 +141,7 @@ module.exports = function initChatSocket(io, { sql, dbConfig, onlineUsers, userS
                 const lastSeenTime = new Date().toISOString();
 
                 try {
-                    const pool = await sql.connect(dbConfig);
+                    const pool = await getPool();
                     await pool.request()
                         .input('uid', sql.Int, socket.userId)
                         .query(`UPDATE Users SET last_seen = GETDATE() WHERE id = @uid`);
