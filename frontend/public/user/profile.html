@@ -596,6 +596,11 @@
         </div>
     </div>
 
+    <!-- Image Viewer Modal -->
+    <div class="edit-modal-overlay" id="imageViewerModal" style="display: none; align-items: center; justify-content: center; z-index: 10000; cursor: pointer;">
+        <img id="imageViewerImg" src="" style="max-width: 90%; max-height: 90vh; object-fit: contain; border-radius: 4px; box-shadow: 0 4px 24px rgba(0,0,0,0.5); cursor: default;" />
+    </div>
+
     <script>
         function escapeHtml(str) {
             if (!str && str !== 0) return '';
@@ -948,6 +953,24 @@
         });
 
         document.addEventListener('click', async (e) => {
+            if (e.target.id === 'imageViewerModal') {
+                document.getElementById('imageViewerModal').style.display = 'none';
+                return;
+            }
+
+            const postItem = e.target.closest('.post-item');
+            if (postItem && !e.target.closest('.edit-post-btn-profile')) {
+                const imgElem = postItem.querySelector('img');
+                if (imgElem) {
+                    const src = imgElem.getAttribute('src');
+                    if (src) {
+                        document.getElementById('imageViewerImg').src = src;
+                        document.getElementById('imageViewerModal').style.display = 'flex';
+                    }
+                }
+                return;
+            }
+
             if (e.target.id === 'editPostModalProfile') {
                 document.getElementById('editPostModalProfile').style.display = 'none';
                 currentEditPostIdProfile = null;

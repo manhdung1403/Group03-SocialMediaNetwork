@@ -461,6 +461,23 @@
         </div>
     </div>
 
+    <!-- Delete Comment Modal -->
+    <div class="edit-modal-overlay" id="deleteCommentModal">
+        <div class="edit-modal" style="max-width: 350px; text-align: center; gap: 8px; padding: 24px 0 0 0; overflow: hidden;">
+            <h2 style="font-size: 18px; margin: 0 24px 8px;">Xóa bình luận?</h2>
+            <p style="color: #8e8e8e; font-size: 14px; margin: 0 24px 16px;">Bạn có chắc chắn muốn xóa bình luận này không?</p>
+            <div style="display: flex; flex-direction: column; border-top: 1px solid #dbdbdb;">
+                <button id="confirmDeleteCommentBtn" style="background: transparent; color: #ed4956; border: none; font-weight: 700; padding: 14px; cursor: pointer; border-bottom: 1px solid #dbdbdb; border-radius: 0; font-size: 14px;">Xóa</button>
+                <button id="cancelDeleteCommentBtn" style="background: transparent; color: #262626; border: none; font-weight: normal; padding: 14px; cursor: pointer; border-radius: 0; font-size: 14px;">Hủy</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Image Viewer Modal -->
+    <div class="edit-modal-overlay" id="imageViewerModal" style="display: none; align-items: center; justify-content: center; z-index: 10000; cursor: pointer;">
+        <img id="imageViewerImg" src="" style="max-width: 90%; max-height: 90vh; object-fit: contain; border-radius: 4px; box-shadow: 0 4px 24px rgba(0,0,0,0.5); cursor: default;" />
+    </div>
+
     <script src="/socket.io/socket.io.js"></script>
     <script>
         let isLoggedIn = false;
@@ -639,7 +656,7 @@
                             <a class="post-username" href="/user/profile.html?userId=${post.user_id}">${username}</a>
                             ${!isOwnPost ? `<button class="follow-btn ${isFollowing ? 'following' : ''}" data-user-id="${post.user_id}">${isFollowing ? 'Đang theo dõi' : 'Theo dõi'}</button>` : ''}
                         </div>
-                        ${post.image_url ? `<img src="${post.image_url}" alt="Post image" class="post-image">` : ''}
+                        ${post.image_url ? `<img src="${post.image_url}" alt="Post image" class="post-image" style="cursor: pointer;">` : ''}
                         <div class="post-content">
                             ${post.caption ? `
                                 <div class="post-caption">
@@ -777,17 +794,23 @@
 
                 const likeLabel = comment.liked ? '💖' : '🤍';
                 return `
-                    <li data-comment-id="${comment.id}">
-                        <span>${safeText}</span>
-                        <button type="button" class="action-btn comment-like-btn" data-post-id="${postId}" data-comment-id="${comment.id}">
-                            ${likeLabel} ${comment.likes}
-                        </button>
+                    <li data-comment-id="${comment.id}" style="display: flex; justify-content: space-between; align-items: start;">
+                        <span style="flex: 1;">${safeText}</span>
+                        <div style="display: flex; gap: 8px;">
+                            <button type="button" class="action-btn comment-like-btn" data-post-id="${postId}" data-comment-id="${comment.id}">
+                                ${likeLabel} ${comment.likes}
+                            </button>
+                            <button type="button" class="action-btn comment-delete-btn" data-post-id="${postId}" data-comment-id="${comment.id}" style="color: #ed4956;">
+                                Xóa
+                            </button>
+                        </div>
                     </li>
                 `;
             }).join('');
         }
 
         let currentEditPostIdFeed = null;
+        let pendingDeleteComment = { postId: null, commentId: null };
 
         document.getElementById('cancelEditBtnFeed').addEventListener('click', () => {
             document.getElementById('editPostModalFeed').style.display = 'none';
@@ -819,9 +842,42 @@
         });
 
         document.addEventListener('click', async (e) => {
+            if (e.target.id === 'imageViewerModal') {
+                document.getElementById('imageViewerModal').style.display = 'none';
+                return;
+            }
+
+            if (e.target.classList.contains('post-image')) {
+                const src = e.target.getAttribute('src');
+                if (src) {
+                    document.getElementById('imageViewerImg').src = src;
+                    document.getElementById('imageViewerModal').style.display = 'flex';
+                }
+                return;
+            }
+
             if (e.target.id === 'editPostModalFeed') {
                 document.getElementById('editPostModalFeed').style.display = 'none';
                 currentEditPostIdFeed = null;
+                return;
+            }
+
+            if (e.target.id === 'deleteCommentModal' || e.target.id === 'cancelDeleteCommentBtn') {
+                document.getElementById('deleteCommentModal').style.display = 'none';
+                pendingDeleteComment = { postId: null, commentId: null };
+                return;
+            }
+
+            if (e.target.id === 'confirmDeleteCommentBtn') {
+                const { postId, commentId } = pendingDeleteComment;
+                if (postId && commentId) {
+                    let comments = getCommentsState(postId);
+                    comments = comments.filter(c => c.id !== commentId);
+                    setCommentsState(postId, comments);
+                    renderComments(postId, comments);
+                }
+                document.getElementById('deleteCommentModal').style.display = 'none';
+                pendingDeleteComment = { postId: null, commentId: null };
                 return;
             }
 
@@ -829,6 +885,7 @@
             const commentToggleBtn = e.target.closest('.comment-toggle-btn');
             const commentSubmitBtn = e.target.closest('.comment-submit-btn');
             const editBtn = e.target.closest('.edit-post-btn');
+            const commentDeleteBtn = e.target.closest('.comment-delete-btn');
 
             if (editBtn) {
                 const postId = editBtn.getAttribute('data-post-id');
@@ -941,6 +998,14 @@
                         renderComments(postId, getCommentsState(postId));
                     }
                 }
+                return;
+            }
+
+            if (commentDeleteBtn) {
+                const postId = commentDeleteBtn.getAttribute('data-post-id');
+                const commentId = commentDeleteBtn.getAttribute('data-comment-id');
+                pendingDeleteComment = { postId, commentId };
+                document.getElementById('deleteCommentModal').style.display = 'flex';
                 return;
             }
 
