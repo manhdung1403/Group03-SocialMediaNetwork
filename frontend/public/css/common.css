@@ -387,6 +387,62 @@ label {
     gap: 12px;
 }
 
+.vertical-nav {
+    position: fixed;
+    top: 70px;
+    left: 0;
+    bottom: 0;
+    width: 210px;
+    background: white;
+    border-right: 1px solid var(--border-light);
+    z-index: 200;
+    padding: 12px 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    overflow-y: auto;
+}
+
+.vertical-nav a {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--text-dark);
+    font-size: 14px;
+    font-weight: 600;
+    padding: 9px 10px;
+    border-radius: 8px;
+    text-decoration: none;
+    border: 1px solid transparent;
+    transition: all 0.2s ease;
+}
+
+.vertical-nav a:hover,
+.vertical-nav a.active {
+    background-color: var(--bg-light);
+    border-color: var(--border-light);
+    color: var(--primary-blue);
+}
+
+.content-with-nav {
+    margin-left: 225px;
+}
+
+body.auth-page .content-with-nav {
+    margin-left: 225px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+}
+
+.content-with-nav .main-content,
+.content-with-nav .container,
+.content-with-nav .app,
+.content-with-nav .profile-container {
+    margin-left: 0;
+}
+
 /* ========== CARDS & CONTAINERS ========== */
 .card {
     background: white;
