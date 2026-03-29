@@ -169,8 +169,8 @@
             el.dataset.id = c.id;
             el.dataset.otherId = c.other_id || '';
 
-            let statusText = '', statusColor = '#9ca3af';
-            if (c.other_is_online) { statusText = 'Đang hoạt động'; statusColor = '#34d399'; }
+            let statusText = '', statusColor = '#8e8e8e';
+            if (c.other_is_online) { statusText = 'Đang hoạt động'; statusColor = '#22c55e'; }
             else if (c.other_last_seen) { statusText = 'Hoạt động ' + formatRelative(parseDate(c.other_last_seen)); }
 
             const isGroup = c.is_group;
@@ -217,7 +217,7 @@
         [messageInput, sendBtn, attachBtn, emojiBtn, convMenuBtn].forEach(el => { if (el) el.disabled = false; });
 
         Array.from(conversationsEl.children).forEach(el => {
-            el.style.background = String(el.dataset.id) === String(currentConv) ? '#0b1220' : '';
+            el.style.background = String(el.dataset.id) === String(currentConv) ? '#efefef' : '';
         });
 
         try {
@@ -594,15 +594,17 @@
         if (emojiPanel) return;
         emojiPanel = document.createElement('div');
         Object.assign(emojiPanel.style, {
-            position: 'fixed', zIndex: '9999', background: '#0b1220',
-            border: '1px solid #1f2937', padding: '8px', borderRadius: '8px',
+            position: 'fixed', zIndex: '9999', background: '#fff',
+            border: '1px solid #dbdbdb', padding: '8px', borderRadius: '8px',
             display: 'grid', gridTemplateColumns: 'repeat(6,28px)', gap: '6px',
-            boxShadow: '0 8px 24px rgba(2,6,23,0.6)'
+            boxShadow: '0 4px 16px rgba(0,0,0,.12)'
         });
         EMOJI_LIST.forEach(em => {
             const b = document.createElement('button');
             b.type = 'button'; b.textContent = em;
             Object.assign(b.style, { fontSize:'18px', width:'28px', height:'28px', borderRadius:'6px', border:'none', background:'transparent', cursor:'pointer' });
+            b.addEventListener('mouseenter', () => b.style.background = '#efefef');
+            b.addEventListener('mouseleave', () => b.style.background = 'transparent');
             b.addEventListener('click', () => { messageInput.value += em; messageInput.focus(); hideEmojiPanel(); });
             emojiPanel.appendChild(b);
         });
