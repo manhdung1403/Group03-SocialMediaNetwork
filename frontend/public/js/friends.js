@@ -1,6 +1,8 @@
 (async () => {
     const baseUrl = window.location.origin === 'http://127.0.0.1:5500' || window.location.protocol === 'file:' ? 'http://localhost:3000' : window.location.origin;
     const usersList = document.getElementById('usersList');
+    const searchInput = document.getElementById('searchInput');
+    let allUsers = [];
 
     async function ensureAuth() {
         const r = await fetch(`${baseUrl}/api/auth/status`, { credentials: 'include' });
@@ -10,68 +12,102 @@
     }
 
     async function loadUsers() {
-        usersList.textContent = 'Đang tải...';
+        usersList.innerHTML = '<div class="empty-state"><i class="fa-solid fa-spinner fa-spin"></i>Đang tải...</div>';
         const r = await fetch(`${baseUrl}/api/users`, { credentials: 'include' });
-        const users = await r.json();
-        render(users);
+        allUsers = await r.json();
+        render(allUsers);
+    }
+
+    function goToProfile(userId) {
+        location.href = `${baseUrl}/user/profile.html?userId=${userId}`;
     }
 
     function render(users) {
+        if (!users.length) {
+            usersList.innerHTML = '<div class="empty-state"><i class="fa-solid fa-user-slash"></i>Không tìm thấy người dùng</div>';
+            return;
+        }
         usersList.innerHTML = '';
         users.forEach(u => {
-            const el = document.createElement('div'); el.className = 'user';
-            el.innerHTML = `<div class="avatar">${(u.username || 'U').charAt(0).toUpperCase()}</div><div><div style="font-weight:600">${u.username}</div><div class="small">ID: ${u.id}</div></div>`;
-            const actions = document.createElement('div'); actions.className = 'actions';
-            const followBtn = document.createElement('button'); followBtn.className = 'btn';
-            followBtn.innerHTML = u.is_following ? '<i class="fa-solid fa-user-check"></i> Đang theo dõi' : '<i class="fa-solid fa-user-plus"></i> Follow';
+            const card = document.createElement('div');
+            card.className = 'user-card';
+
+            const avatarLetter = (u.username || 'U').charAt(0).toUpperCase();
+            const avatarHtml = u.avatar
+                ? `<img src="${u.avatar}" alt="${u.username}">`
+                : avatarLetter;
+
+            card.innerHTML = `
+                <div class="avatar-link" data-id="${u.id}">
+                    <div class="avatar">${avatarHtml}</div>
+                </div>
+                <div class="user-info">
+                    <span class="name-link" data-id="${u.id}">${u.username}</span>
+                    ${u.full_name ? `<span class="user-fullname">${u.full_name}</span>` : ''}
+                </div>
+                <div class="actions">
+                    <button class="btn-follow ${u.is_following ? 'following' : ''}" data-id="${u.id}">
+                        ${u.is_following ? 'Đang theo dõi' : 'Theo dõi'}
+                    </button>
+                    <button class="btn-chat" data-id="${u.id}">
+                        <i class="fa-solid fa-comment"></i> <span>Nhắn tin</span>
+                    </button>
+                </div>`;
+
+            // Navigate to profile
+            card.querySelector('.avatar-link').addEventListener('click', () => goToProfile(u.id));
+            card.querySelector('.name-link').addEventListener('click', () => goToProfile(u.id));
+
+            // Follow / Unfollow
+            const followBtn = card.querySelector('.btn-follow');
             followBtn.addEventListener('click', async () => {
                 followBtn.disabled = true;
                 if (u.is_following) {
                     await fetch(`${baseUrl}/api/unfollow`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({ userId: u.id }) });
-                    u.is_following = 0; followBtn.innerHTML = '<i class="fa-solid fa-user-plus"></i> Follow';
+                    u.is_following = 0;
+                    followBtn.textContent = 'Theo dõi';
+                    followBtn.classList.remove('following');
                 } else {
                     await fetch(`${baseUrl}/api/follow`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({ userId: u.id }) });
-                    u.is_following = 1; followBtn.innerHTML = '<i class="fa-solid fa-user-check"></i> Đang theo dõi';
+                    u.is_following = 1;
+                    followBtn.textContent = 'Đang theo dõi';
+                    followBtn.classList.add('following');
                 }
                 followBtn.disabled = false;
             });
-            const chatBtn = document.createElement('button'); chatBtn.className = 'btn ghost'; chatBtn.innerHTML = '<i class="fa-solid fa-comment"></i> Chat';
-            // ensure button is enabled (handles back-navigation cached state)
-            chatBtn.disabled = false;
+
+            // Chat
+            const chatBtn = card.querySelector('.btn-chat');
             chatBtn.addEventListener('click', async () => {
                 chatBtn.disabled = true;
                 try {
-                    // create conversation with this user (server will return existing convo if any)
                     const r = await fetch(`${baseUrl}/api/conversations`, { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ participantIds: [u.id], title: u.username }) });
                     const data = await r.json();
                     if (data && data.id) {
                         location.href = `${baseUrl}/chat.html?conv=${data.id}`;
                         return;
-                    } else {
-                        alert('Không tạo được cuộc trò chuyện');
                     }
-                } catch (err) {
-                    console.error('Error creating conversation', err);
+                    alert('Không tạo được cuộc trò chuyện');
+                } catch {
                     alert('Lỗi khi tạo cuộc trò chuyện');
                 } finally {
-                    // if navigation didn't happen, re-enable the button
                     chatBtn.disabled = false;
                 }
             });
-            actions.appendChild(followBtn); actions.appendChild(chatBtn);
-            el.appendChild(actions);
-            usersList.appendChild(el);
+
+            usersList.appendChild(card);
         });
     }
 
-    // Handle bfcache / back navigation: if page was restored from cache, reload user list
+    // Search filter
+    searchInput.addEventListener('input', () => {
+        const q = searchInput.value.trim().toLowerCase();
+        render(q ? allUsers.filter(u => u.username.toLowerCase().includes(q) || (u.full_name || '').toLowerCase().includes(q)) : allUsers);
+    });
+
+    // Handle bfcache
     window.addEventListener('pageshow', (ev) => {
-        if (ev.persisted) {
-            loadUsers();
-        } else {
-            // also ensure buttons are enabled if coming back without full reload
-            Array.from(document.querySelectorAll('.btn')).forEach(b => b.disabled = false);
-        }
+        if (ev.persisted) loadUsers();
     });
 
     await ensureAuth();
