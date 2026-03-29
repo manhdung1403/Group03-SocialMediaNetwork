@@ -231,6 +231,30 @@
             color: #dbdbdb;
         }
 
+        .tab-group {
+            display: flex;
+            gap: 4px;
+            flex-shrink: 0;
+        }
+
+        .btn-tab {
+            background: #efefef;
+            color: #262626;
+            border: none;
+            padding: 6px 14px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+            white-space: nowrap;
+        }
+
+        .btn-tab.active {
+            background: #0095f6;
+            color: #fff;
+        }
+
         @media (max-width: 600px) {
             .list {
                 grid-template-columns: 1fr;
@@ -255,6 +279,10 @@
     <div class="container content-with-nav">
         <div class="page-header">
             <h1>Mọi người</h1>
+            <div class="tab-group">
+                <button class="btn-tab active" id="tabAll">Tất cả</button>
+                <button class="btn-tab" id="tabFollowing">Bạn của tôi</button>
+            </div>
             <div class="search-wrap">
                 <i class="fa-solid fa-magnifying-glass"></i>
                 <input type="text" id="searchInput" placeholder="Tìm kiếm...">

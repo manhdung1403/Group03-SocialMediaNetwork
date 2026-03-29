@@ -2,7 +2,10 @@
     const baseUrl = window.location.origin === 'http://127.0.0.1:5500' || window.location.protocol === 'file:' ? 'http://localhost:3000' : window.location.origin;
     const usersList = document.getElementById('usersList');
     const searchInput = document.getElementById('searchInput');
+    const tabAll = document.getElementById('tabAll');
+    const tabFollowing = document.getElementById('tabFollowing');
     let allUsers = [];
+    let currentTab = 'all';
 
     async function ensureAuth() {
         const r = await fetch(`${baseUrl}/api/auth/status`, { credentials: 'include' });
@@ -20,6 +23,13 @@
 
     function goToProfile(userId) {
         location.href = `${baseUrl}/user/profile.html?userId=${userId}`;
+    }
+
+    function getFiltered() {
+        const q = searchInput.value.trim().toLowerCase();
+        let list = currentTab === 'following' ? allUsers.filter(u => u.is_following) : allUsers;
+        if (q) list = list.filter(u => u.username.toLowerCase().includes(q) || (u.full_name || '').toLowerCase().includes(q));
+        return list;
     }
 
     function render(users) {
@@ -65,15 +75,12 @@
                 if (u.is_following) {
                     await fetch(`${baseUrl}/api/unfollow`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({ userId: u.id }) });
                     u.is_following = 0;
-                    followBtn.textContent = 'Theo dõi';
-                    followBtn.classList.remove('following');
                 } else {
                     await fetch(`${baseUrl}/api/follow`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({ userId: u.id }) });
                     u.is_following = 1;
-                    followBtn.textContent = 'Đang theo dõi';
-                    followBtn.classList.add('following');
                 }
                 followBtn.disabled = false;
+                render(getFiltered());
             });
 
             // Chat
@@ -99,10 +106,20 @@
         });
     }
 
-    // Search filter
-    searchInput.addEventListener('input', () => {
-        const q = searchInput.value.trim().toLowerCase();
-        render(q ? allUsers.filter(u => u.username.toLowerCase().includes(q) || (u.full_name || '').toLowerCase().includes(q)) : allUsers);
+    searchInput.addEventListener('input', () => render(getFiltered()));
+
+    tabAll.addEventListener('click', () => {
+        currentTab = 'all';
+        tabAll.classList.add('active');
+        tabFollowing.classList.remove('active');
+        render(getFiltered());
+    });
+
+    tabFollowing.addEventListener('click', () => {
+        currentTab = 'following';
+        tabFollowing.classList.add('active');
+        tabAll.classList.remove('active');
+        render(getFiltered());
     });
 
     // Handle bfcache
