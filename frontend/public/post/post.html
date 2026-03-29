@@ -12,20 +12,38 @@
         }
 
         .header {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            background: white;
-            border-bottom: 1px solid #dbdbdb;
-            padding: 12px 0;
-            z-index: 100;
+            display: none;
+            /* Ẩn header trên cùng để tránh che nội dung */
+        }
+
+        .main-content {
+            max-width: 930px;
+            margin: 0 auto;
+            margin-top: 20px;
+            padding: 0 12px;
+            display: flex;
+            gap: 12px;
+            align-items: flex-start;
+        }
+
+        .feed {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: 680px;
+        }
+
+        .sidebar {
+            width: 260px;
+            min-width: 240px;
+            position: sticky;
+            top: 80px;
+            align-self: flex-start;
         }
 
         .header-content {
-            max-width: 935px;
+            max-width: 950px;
             margin: 0 auto;
-            padding: 0 20px;
+            padding: 0 16px;
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -44,25 +62,26 @@
         }
 
         .main-content {
-            max-width: 1200px;
-            margin: 0 auto;
-            margin-top: 60px;
+            width: auto;
+            max-width: 930px;
+            margin: 90px auto 30px;
             padding: 0 12px;
             display: flex;
-            gap: 12px;
+            gap: 14px;
             align-items: flex-start;
         }
 
         .feed {
             flex: 1 1 auto;
             min-width: 0;
+            max-width: 680px;
         }
 
         .sidebar {
-            width: 340px;
-            min-width: 320px;
+            width: 250px;
+            min-width: 230px;
             position: sticky;
-            top: 80px;
+            top: 90px;
             align-self: flex-start;
         }
 
@@ -135,6 +154,20 @@
             width: 36px;
             height: 36px;
             font-size: 16px;
+            border-radius: 50%;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #fafafa;
+            color: #555;
+        }
+
+        .user-suggestion .avatar img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
         }
 
         .user-suggestion .follow-btn {
@@ -409,7 +442,7 @@
 <body>
     <div class="header">
         <div class="header-content">
-            <div class="logo">NewsFeed</div>
+            <div class="logo" onclick="window.location.href='/post/post.html'">NewsFeed</div>
             <div id="authButtons" class="auth-buttons">
                 <!-- Nút đăng nhập và đăng ký sẽ được thêm vào đây khi chưa đăng nhập -->
             </div>
@@ -434,7 +467,15 @@
         </div>
     </div>
 
-    <div class="main-content">
+    <nav class="vertical-nav" aria-label="Điều hướng chính">
+        <a href="/post/post.html" class="active">🏠 Bài đăng</a>
+        <a href="/user/profile.html">👤 Trang cá nhân</a>
+        <a href="/friends.html">👥 Bạn bè</a>
+        <a href="/chat.html">💬 Tin nhắn</a>
+        <a href="/post/addpost.html">✍️ Tạo bài đăng</a>
+    </nav>
+
+    <div class="main-content content-with-nav">
         <div class="feed" id="postContainer">
             <p style="text-align: center; padding: 40px; color: #8e8e8e;">Đang kiểm tra đăng nhập...</p>
         </div>
@@ -463,19 +504,25 @@
 
     <!-- Delete Comment Modal -->
     <div class="edit-modal-overlay" id="deleteCommentModal">
-        <div class="edit-modal" style="max-width: 350px; text-align: center; gap: 8px; padding: 24px 0 0 0; overflow: hidden;">
+        <div class="edit-modal"
+            style="max-width: 350px; text-align: center; gap: 8px; padding: 24px 0 0 0; overflow: hidden;">
             <h2 style="font-size: 18px; margin: 0 24px 8px;">Xóa bình luận?</h2>
-            <p style="color: #8e8e8e; font-size: 14px; margin: 0 24px 16px;">Bạn có chắc chắn muốn xóa bình luận này không?</p>
+            <p style="color: #8e8e8e; font-size: 14px; margin: 0 24px 16px;">Bạn có chắc chắn muốn xóa bình luận này
+                không?</p>
             <div style="display: flex; flex-direction: column; border-top: 1px solid #dbdbdb;">
-                <button id="confirmDeleteCommentBtn" style="background: transparent; color: #ed4956; border: none; font-weight: 700; padding: 14px; cursor: pointer; border-bottom: 1px solid #dbdbdb; border-radius: 0; font-size: 14px;">Xóa</button>
-                <button id="cancelDeleteCommentBtn" style="background: transparent; color: #262626; border: none; font-weight: normal; padding: 14px; cursor: pointer; border-radius: 0; font-size: 14px;">Hủy</button>
+                <button id="confirmDeleteCommentBtn"
+                    style="background: transparent; color: #ed4956; border: none; font-weight: 700; padding: 14px; cursor: pointer; border-bottom: 1px solid #dbdbdb; border-radius: 0; font-size: 14px;">Xóa</button>
+                <button id="cancelDeleteCommentBtn"
+                    style="background: transparent; color: #262626; border: none; font-weight: normal; padding: 14px; cursor: pointer; border-radius: 0; font-size: 14px;">Hủy</button>
             </div>
         </div>
     </div>
 
     <!-- Image Viewer Modal -->
-    <div class="edit-modal-overlay" id="imageViewerModal" style="display: none; align-items: center; justify-content: center; z-index: 10000; cursor: pointer;">
-        <img id="imageViewerImg" src="" style="max-width: 90%; max-height: 90vh; object-fit: contain; border-radius: 4px; box-shadow: 0 4px 24px rgba(0,0,0,0.5); cursor: default;" />
+    <div class="edit-modal-overlay" id="imageViewerModal"
+        style="display: none; align-items: center; justify-content: center; z-index: 10000; cursor: pointer;">
+        <img id="imageViewerImg" src=""
+            style="max-width: 90%; max-height: 90vh; object-fit: contain; border-radius: 4px; box-shadow: 0 4px 24px rgba(0,0,0,0.5); cursor: default;" />
     </div>
 
     <script src="/socket.io/socket.io.js"></script>
@@ -727,10 +774,22 @@
                 const isFollowing = !!user.is_following;
                 const followersCount = typeof user.followers_count === 'number' ? user.followers_count : 0;
 
+                let avatarUrl = null;
+                if (user.avatar) {
+                    const trimmedAvatar = String(user.avatar).trim();
+                    if (trimmedAvatar.startsWith('http://') || trimmedAvatar.startsWith('https://')) {
+                        avatarUrl = trimmedAvatar;
+                    } else if (trimmedAvatar.startsWith('/')) {
+                        avatarUrl = `${baseUrl}${trimmedAvatar}`;
+                    } else {
+                        avatarUrl = `${baseUrl}/${trimmedAvatar}`;
+                    }
+                }
+
                 return `
                     <div class="user-suggestion" data-user-id="${user.id}">
                         <div class="user-info">
-                            <div class="avatar">${user.avatar ? `<img src="${user.avatar}" alt="${username} avatar">` : avatarInitial}</div>
+                            <div class="avatar">${avatarUrl ? `<img src="${avatarUrl}" alt="${username} avatar">` : avatarInitial}</div>
                             <div>
                                 <a href="/user/profile.html?userId=${user.id}" class="username">${username}</a>
                                 <div class="followers">${followersCount} người theo dõi</div>
