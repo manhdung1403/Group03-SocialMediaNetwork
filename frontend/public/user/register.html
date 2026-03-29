@@ -161,11 +161,11 @@
                 const data = await response.json();
 
                 if (response.ok && data.success) {
-                    successMessage.textContent = data.message || 'Đăng ký thành công! Đang chuyển hướng...';
+                    successMessage.textContent = data.message || 'Đăng ký thành công! Vui lòng đăng nhập.';
                     successMessage.classList.add('show');
 
                     setTimeout(() => {
-                        window.location.href = `${baseUrl}/post.html`;
+                        window.location.href = `${baseUrl}/user/login.html`;
                     }, 1000);
                 } else {
                     errorMessage.textContent = data.error || 'Đăng ký thất bại';
