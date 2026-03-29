@@ -15,8 +15,6 @@
         usersList.innerHTML = '<div class="empty-state"><i class="fa-solid fa-spinner fa-spin"></i>Đang tải...</div>';
         const r = await fetch(`${baseUrl}/api/users`, { credentials: 'include' });
         allUsers = await r.json();
-        // Chỉ giữ những người đã theo dõi
-        allUsers = allUsers.filter(u => u.is_following);
         render(allUsers);
     }
 
@@ -66,9 +64,9 @@
                 followBtn.disabled = true;
                 if (u.is_following) {
                     await fetch(`${baseUrl}/api/unfollow`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({ userId: u.id }) });
-                    // Remove user khỏi danh sách vì không theo dõi nữa
-                    allUsers = allUsers.filter(user => user.id !== u.id);
-                    card.remove();
+                    u.is_following = 0;
+                    followBtn.textContent = 'Theo dõi';
+                    followBtn.classList.remove('following');
                 } else {
                     await fetch(`${baseUrl}/api/follow`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({ userId: u.id }) });
                     u.is_following = 1;
