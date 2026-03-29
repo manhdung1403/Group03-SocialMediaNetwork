@@ -13,14 +13,11 @@
 
         .header {
             display: none;
-            /* Ẩn header trên cùng để tránh che nội dung */
         }
 
         .main-content {
-            max-width: 930px;
-            margin: 0 auto;
-            margin-top: 20px;
-            padding: 0 12px;
+            margin: 20px 20px 30px;
+            padding: 0;
             display: flex;
             gap: 12px;
             align-items: flex-start;
@@ -29,71 +26,25 @@
         .feed {
             flex: 1 1 auto;
             min-width: 0;
-            max-width: 680px;
         }
 
         .sidebar {
             width: 260px;
-            min-width: 240px;
+            min-width: 260px;
             position: sticky;
-            top: 80px;
-            align-self: flex-start;
-        }
-
-        .header-content {
-            max-width: 950px;
-            margin: 0 auto;
-            padding: 0 16px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .logo {
-            font-size: 24px;
-            font-weight: 300;
-            color: #262626;
-            letter-spacing: -1px;
-        }
-
-        .auth-buttons {
-            display: flex;
-            gap: 8px;
-        }
-
-        .main-content {
-            width: auto;
-            max-width: 930px;
-            margin: 90px auto 30px;
-            padding: 0 12px;
-            display: flex;
-            gap: 14px;
-            align-items: flex-start;
-        }
-
-        .feed {
-            flex: 1 1 auto;
-            min-width: 0;
-            max-width: 680px;
-        }
-
-        .sidebar {
-            width: 250px;
-            min-width: 230px;
-            position: sticky;
-            top: 90px;
+            top: 20px;
             align-self: flex-start;
         }
 
         .sidebar-card {
-            background: white;
-            border: 1px solid #dbdbdb;
+            background: #fff;
+            border: 1px solid #262626;
             border-radius: 8px;
-            padding: 10px;
+            padding: 14px;
         }
 
         .sidebar-card h2 {
-            margin: 0 0 6px;
+            margin: 0 0 10px;
             font-size: 15px;
             font-weight: 700;
             color: #262626;
@@ -102,10 +53,12 @@
         .sidebar-search {
             width: 100%;
             padding: 8px 10px;
-            border: 1px solid #dbdbdb;
+            border: 1px solid #262626;
             border-radius: 6px;
-            margin-bottom: 8px;
+            margin-bottom: 10px;
             font-size: 13px;
+            background: #fff;
+            color: #262626;
         }
 
         #sidebarUsersList {
@@ -120,6 +73,7 @@
             gap: 8px;
             padding: 6px 0;
             border-bottom: 1px solid #f0f0f0;
+            overflow: hidden;
         }
 
         .user-suggestion:last-child {
@@ -132,11 +86,17 @@
             gap: 8px;
             min-width: 0;
             flex: 1;
+            overflow: hidden;
+        }
+
+        .user-suggestion .user-info > div {
+            min-width: 0;
+            overflow: hidden;
         }
 
         .user-suggestion .username {
             font-size: 13px;
-            color: #262626;
+            color: #e5e7eb;
             font-weight: 600;
             text-decoration: none;
             white-space: nowrap;
@@ -146,7 +106,7 @@
 
         .user-suggestion .followers {
             font-size: 11px;
-            color: #8e8e8e;
+            color: #9ca3af;
             white-space: nowrap;
         }
 

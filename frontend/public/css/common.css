@@ -389,7 +389,7 @@ label {
 
 .vertical-nav {
     position: fixed;
-    top: 70px;
+    top: 0;
     left: 0;
     bottom: 0;
     width: 210px;
@@ -424,23 +424,12 @@ label {
     color: var(--primary-blue);
 }
 
-.content-with-nav {
-    margin-left: 225px;
+body:has(.vertical-nav) {
+    padding-left: 210px;
 }
 
-body.auth-page .content-with-nav {
-    margin-left: 225px;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    min-height: 100vh;
-}
-
-.content-with-nav .main-content,
-.content-with-nav .container,
-.content-with-nav .app,
-.content-with-nav .profile-container {
-    margin-left: 0;
+body.auth-page {
+    padding-left: 0;
 }
 
 /* ========== CARDS & CONTAINERS ========== */
