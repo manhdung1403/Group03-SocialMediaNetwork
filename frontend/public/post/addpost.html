@@ -164,7 +164,7 @@
         <a href="/post/post.html">🏠 Bài đăng</a>
         <a href="/user/profile.html">👤 Trang cá nhân</a>
         <a href="/friends.html">👥 Bạn bè</a>
-        <a href="/chat.html">💬 Tin nhắn</a>
+        <a href="/chat.html">💬 Tin nhắn <span id="navChatBadge" class="chat-unread-badge" style="display:none;">0</span></a>
         <a href="/post/addpost.html" class="active">✍️ Tạo bài đăng</a>
     </nav>
 
@@ -230,6 +230,7 @@
                         isLoggedIn = true;
                         currentUser = data.user;
                         updateUIForLoggedIn();
+                        loadChatUnreadBadge();
                     } else {
                         isLoggedIn = false;
                         updateUIForLoggedOut();
@@ -389,6 +390,19 @@
 
             function goToFeed() {
                 window.location.href = `${baseUrl}/post/post.html`;
+            }
+
+            async function loadChatUnreadBadge() {
+                try {
+                    const r = await fetch(`${baseUrl}/api/conversations/unread-total`, { credentials: 'include' });
+                    if (!r.ok) return;
+                    const data = await r.json();
+                    const count = Number(data.unreadCount) || 0;
+                    const badge = document.getElementById('navChatBadge');
+                    if (!badge) return;
+                    if (count > 0) { badge.textContent = String(count); badge.style.display = 'inline-flex'; }
+                    else badge.style.display = 'none';
+                } catch {}
             }
 
             // Xử lý đăng xuất

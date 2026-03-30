@@ -431,7 +431,7 @@
         <a href="/post/post.html" class="active">🏠 Bài đăng</a>
         <a href="/user/profile.html">👤 Trang cá nhân</a>
         <a href="/friends.html">👥 Bạn bè</a>
-        <a href="/chat.html">💬 Tin nhắn</a>
+        <a href="/chat.html">💬 Tin nhắn <span id="navChatBadge" class="chat-unread-badge" style="display:none;">0</span></a>
         <a href="/post/addpost.html">✍️ Tạo bài đăng</a>
     </nav>
 
@@ -600,11 +600,14 @@
 
                 const data = await r.json();
                 const count = Number(data.unreadCount) || 0;
+                const navBadge = document.getElementById('navChatBadge');
                 if (count > 0) {
                     badge.textContent = String(count);
                     badge.style.display = 'inline-flex';
+                    if (navBadge) { navBadge.textContent = String(count); navBadge.style.display = 'inline-flex'; }
                 } else {
                     badge.style.display = 'none';
+                    if (navBadge) navBadge.style.display = 'none';
                 }
             } catch {
                 const badge = document.getElementById('chatUnreadBadge');
