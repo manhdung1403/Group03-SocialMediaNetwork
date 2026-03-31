@@ -39,7 +39,9 @@ const UserService = {
     },
 
     async updatePrivacy(userId, is_private) {
+        // Chuyển tiếp yêu cầu cập nhật xuống Model
         await UserModel.updatePrivacy(userId, is_private);
+        // Trả về trạng thái đã cập nhật
         return { is_private };
     },
 

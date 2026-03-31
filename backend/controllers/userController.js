@@ -39,11 +39,13 @@ async function updateProfile(req, res) {
 
 async function updatePrivacy(req, res) {
     try {
-        const { is_private } = req.body;
+        const { is_private } = req.body; // Lấy giá trị is_private từ dữ liệu gửi lên
+        // Gọi Service cập nhật trạng thái cho người dùng hiện tại
         const result = await UserService.updatePrivacy(req.session.userId, is_private);
+        // Trả về kết quả thành công
         return res.json({ success: true, ...result });
     } catch (err) {
-        console.error('Lỗi cập nhật privacy:', err);
+        // Xử lý và trả về lỗi nếu có
         const statusCode = err.statusCode || 500;
         return res.status(statusCode).json({ error: err.message });
     }

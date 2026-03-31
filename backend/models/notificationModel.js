@@ -22,16 +22,18 @@ async function ensureNotificationsTable() {
 }
 
 const NotificationModel = {
+    // Chức năng: Thêm mới một thông báo xuất phát từ tương tác của người dùng
     async create({ userId, actorId, type, postId = null, commentId = null, message }) {
         await ensureNotificationsTable();
         const pool = await getPool();
         await pool.request()
-            .input('user_id', sql.Int, userId)
-            .input('actor_id', sql.Int, actorId)
+            .input('user_id', sql.Int, userId) // Người nhận chuông
+            .input('actor_id', sql.Int, actorId) // Người thực hiện tương tác tạo ra chuông
             .input('type', sql.NVarChar(50), type)
             .input('post_id', sql.Int, postId)
             .input('comment_id', sql.Int, commentId)
-            .input('message', sql.NVarChar(sql.MAX), message)
+            .input('message', sql.NVarChar(sql.MAX), message) // Nội dung hiển thị
+            // Insert nội dung và mặc định is_read = 0 (false) tức chưa được đọc (chấm đỏ hiện)
             .query(`
                 INSERT INTO Notifications (user_id, actor_id, type, post_id, comment_id, message, is_read, created_at)
                 VALUES (@user_id, @actor_id, @type, @post_id, @comment_id, @message, 0, GETDATE())
@@ -63,9 +65,11 @@ const NotificationModel = {
         return result.recordset;
     },
 
+    // Chức năng: Đánh dấu tất cả thông báo của 1 User đã được đọc (Ẩn chấm đỏ)
     async markAllRead(userId) {
         await ensureNotificationsTable();
         const pool = await getPool();
+        // Cập nhật giá trị is_read = 1 cho tất cả những nội dung mà trước đây là 0
         await pool.request()
             .input('user_id', sql.Int, userId)
             .query(`UPDATE Notifications SET is_read = 1 WHERE user_id = @user_id AND is_read = 0`);

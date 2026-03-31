@@ -634,6 +634,87 @@
             ? 'http://localhost:3000'
             : window.location.origin;
 
+        // --- CÁC HÀM XỬ LÝ THEO YÊU CẦU ---
+        
+        // Hàm xử lý khi người dùng nhấn nút thay đổi quyền riêng tư của bài viết
+        async function togglePostPrivacy(postId) {
+            // Gọi API đã định nghĩa ở Backend: router.put('/api/posts/:id/privacy', ...)
+            const res = await fetch(`/api/posts/${postId}/privacy`, { 
+                method: 'PUT' 
+            });
+            const data = await res.json(); // Chờ phản hồi từ PostService trả về
+
+            if (data.success) {
+                // data.is_private trả về giá trị 0 (công khai) hoặc 1 (riêng tư)
+                alert(data.message);
+                if (typeof renderPostStatus !== 'undefined') renderPostStatus(postId, data.is_private); 
+            } else {
+                alert(data.error); // Hiển thị lỗi nếu không phải chủ bài viết
+            }
+        }
+
+        async function handleLikePost(postId) {
+            // Gọi API: router.post('/api/posts/:id/like', ...)
+            const res = await fetch(`/api/posts/${postId}/like`, { method: 'POST' });
+            const result = await res.json(); // Nhận { liked, like_count, ... } từ postModel
+
+            if (result.success) {
+                // Cập nhật màu nút tim: result.liked = true thì đỏ, false thì xám
+                const likeBtn = document.querySelector(`#like-btn-${postId}`);
+                if (likeBtn) likeBtn.classList.toggle('text-danger', result.liked);
+                
+                // Cập nhật con số hiển thị số lượt tim
+                const countEl = document.querySelector(`#like-count-${postId}`);
+                if (countEl) countEl.innerText = result.like_count;
+            }
+        }
+
+        async function handleLikeComment(postId, commentId) {
+            // Gọi API: router.post('/api/posts/:id/comments/:commentId/like', ...)
+            const res = await fetch(`/api/posts/${postId}/comments/${commentId}/like`, { method: 'POST' });
+            const result = await res.json();
+
+            if (result.success) {
+                // Cập nhật giao diện riêng cho dòng comment đó
+                if (typeof updateCommentUI !== 'undefined') updateCommentUI(commentId, result.liked, result.like_count);
+            }
+        }
+
+        async function deleteComment(commentId) {
+            if (!confirm("Bạn có muốn xóa bình luận này?")) return;
+
+            // Gọi API: router.delete('/api/comments/:commentId', ...)
+            const res = await fetch(`/api/comments/${commentId}`, { method: 'DELETE' });
+            const result = await res.json();
+
+            if (result.success) {
+                // Nếu xóa thành công trong DB, xóa luôn phần tử HTML tương ứng trên trang
+                const el = document.getElementById(`comment-item-${commentId}`);
+                if (el) el.remove();
+            } else {
+                alert(result.error); // Báo lỗi nếu user không có quyền xóa
+            }
+        }
+
+        async function editPost(postId, newCaption) {
+            // Gọi API: router.put('/api/posts/:id', ...)
+            const res = await fetch(`/api/posts/${postId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ caption: newCaption }) // Gửi nội dung mới lên postController
+            });
+            const result = await res.json();
+
+            if (result.success) {
+                // Cập nhật nội dung văn bản mới hiển thị trên màn hình
+                const captionEl = document.querySelector(`#post-caption-${postId}`);
+                if (captionEl) captionEl.innerText = newCaption;
+                if (typeof toggleEditMode !== 'undefined') toggleEditMode(postId, false); // Tắt chế độ nhập liệu
+            }
+        }
+        
+        // ---------------------------------
+
         // Kiểm tra trạng thái đăng nhập
         async function checkAuthStatus() {
             try {
@@ -1251,21 +1332,31 @@
                 return;
             }
 
+            // Chức năng: Điều hướng khi bấm vào một dòng thông báo
             const notificationItem = e.target.closest('.notification-item');
             if (notificationItem) {
+                // Lấy thông tin ID bài viết và ID user được nhúng sẵn trên chuỗi HTML khi render
                 const postId = notificationItem.getAttribute('data-post-id');
                 const userId = notificationItem.getAttribute('data-user-id');
+
                 if (postId) {
+                    // Nếu thông báo liên quan đến Post (Like, Comment), tìm thẻ HTML của bài viết đó trên màn hình
                     const postElement = document.querySelector(`.like-btn[data-post-id="${postId}"]`)?.closest('.post-card');
                     if (postElement) {
+                        // Tự động sử dụng API của trình duyệt cuộn thanh cuộn mượt mà trỏ đúng vào component của bài viết
                         postElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+                        // Tạo hiệu ứng chớp tắt màn hình để người dùng biết là bài đó: (Đổi Background xanh nhạt rồi quay lại trắng sau 2s)
                         postElement.style.transition = 'background-color 0.5s';
                         postElement.style.backgroundColor = '#f0f8ff'; // highlight light blue
                         setTimeout(() => { postElement.style.backgroundColor = 'white'; }, 2000);
                     }
                 } else if (userId) {
+                    // Nếu chỉ liên quan user (Ví dụ thông báo follow), chuyển URL tới profile của User đó
                     window.location.href = '/user/profile.html?userId=' + userId;
                 }
+                
+                // Thu gọn danh sách thông báo lại sau khi người dùng bấm xong
                 const notificationPanel = document.getElementById('notificationPanel');
                 if (notificationPanel) notificationPanel.style.display = 'none';
                 return;
@@ -1320,16 +1411,23 @@
             const notificationFab = document.getElementById('notificationFab');
             const notificationPanel = document.getElementById('notificationPanel');
             if (notificationFab && notificationPanel) {
+                // Sự kiện: Khi bấm vào biểu tượng "Quả chuông"
                 notificationFab.addEventListener('click', async (e) => {
-                    e.stopPropagation();
-                    const opening = notificationPanel.style.display !== 'block';
-                    notificationPanel.style.display = opening ? 'block' : 'none';
+                    e.stopPropagation(); // Ngăn sự kiện click nổi bọt tắt popup ngay lập tức
+                    
+                    const opening = notificationPanel.style.display !== 'block'; // Kiểm tra panel đang đóng hay mở
+                    notificationPanel.style.display = opening ? 'block' : 'none'; // Toggle ẩn/hiện
+                    
                     if (opening) {
+                        // Gọi báo API load dữ liệu notification mới nhất
                         await loadNotifications();
-                        // Gọi API đã đọc ngay lập tức và ẩn chấm đỏ 
+                        
+                        // Gọi API đánh dấu đã đọc toàn bộ (read-all) ngay lập tức và ẩn thẻ chấm đỏ (Badge) của biểu tượng
                         const badge = document.getElementById('notificationBadge');
-                        if (badge) badge.style.display = 'none';
+                        if (badge) badge.style.display = 'none'; // Xóa ngay chấm đỏ của badge
+                        
                         try {
+                            // Gọi backend báo update Database
                             await fetch(`${baseUrl}/api/notifications/read-all`, {
                                 method: 'PUT',
                                 credentials: 'include'

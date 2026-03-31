@@ -142,6 +142,25 @@
     </div>
 
     <script>
+        // Hàm xử lý lưu trạng thái riêng tư của tài khoản
+        async function updateAccountPrivacy(isPrivate) {
+            // Gọi API: router.put('/api/user/privacy', ...)
+            const res = await fetch('/api/user/privacy', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ is_private: isPrivate }) // Gửi giá trị true/false lên controller
+            });
+            const data = await res.json();
+
+            if (data.success) {
+                // Thông báo cho người dùng biết thiết lập đã được lưu
+                if (typeof showToast !== 'undefined') {
+                    showToast("Đã cập nhật quyền riêng tư tài khoản thành công!");
+                } else {
+                    showMessage("Đã cập nhật quyền riêng tư tài khoản thành công!", 'success');
+                }
+            }
+        }
         function escapeHtml(str) {
             if (!str && str !== 0) return '';
             return String(str).replace(/[&<>\"]/g, c => ({

@@ -15,12 +15,13 @@ const PostService = {
     },
 
     async updatePost(postId, userId, { caption, image_url }) {
-        // Check ownership
+        // Kiểm tra xem user có phải chủ bài viết không
         const exists = await PostModel.findById(postId, userId);
         if (!exists) {
             throw { statusCode: 403, message: 'Không có quyền sửa bài viết này hoặc bài viết không tồn tại' };
         }
 
+        // Tiến hành cập nhật
         await PostModel.update(postId, userId, { caption, image_url });
         return { success: true, message: 'Cập nhật thành công' };
     },
@@ -52,8 +53,10 @@ const PostService = {
     },
 
     async deleteComment(commentId, userId) {
+        // Gọi Model để thực hiện xóa sau khi kiểm tra quyền
         const deleted = await PostModel.deleteComment(commentId, userId);
         if (!deleted) {
+            // Trả về lỗi nếu không có quyền hoặc không tồn tại
             throw { statusCode: 403, message: 'Không có quyền xóa bình luận này hoặc bình luận không tồn tại' };
         }
         return { success: true, message: 'Xóa bình luận thành công' };
@@ -68,10 +71,15 @@ const PostService = {
     },
 
     async togglePrivacy(postId, userId) {
+        // Gọi Model để thực hiện thay đổi trong Database
         const newPrivate = await PostModel.togglePrivacy(postId, userId);
+        
+        // Nếu Model trả về null (nghĩa là không tìm thấy bài viết hoặc không có quyền)
         if (newPrivate === null) {
             throw { statusCode: 403, message: 'Không có quyền sửa bài viết này hoặc bài viết không tồn tại' };
         }
+        
+        // Trả về thông báo thành công và trạng thái mới
         return { success: true, message: 'Cập nhật chế độ riêng tư thành công', is_private: newPrivate };
     }
 };

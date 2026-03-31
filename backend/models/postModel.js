@@ -84,28 +84,29 @@ const PostModel = {
 
     async update(postId, userId, { caption, image_url }) {
         const pool = await getPool();
-        let updateQuery = 'UPDATE Posts SET ';
+        let updateQuery = 'UPDATE Posts SET '; // Khởi tạo câu lệnh
         const params = [];
 
+        // Kiểm tra nếu có caption thì mới thêm vào câu lệnh update
         if (caption !== undefined) {
             updateQuery += 'caption = @caption';
             params.push({ name: 'caption', type: sql.NVarChar, value: caption || null });
         }
+        // Kiểm tra nếu có image_url thì thêm vào câu lệnh update
         if (image_url !== undefined) {
-            if (params.length > 0) updateQuery += ', ';
+            if (params.length > 0) updateQuery += ', '; // Thêm dấu phẩy ngăn cách
             updateQuery += 'image_url = @image_url';
             params.push({ name: 'image_url', type: sql.NVarChar(sql.MAX), value: image_url });
         }
-        updateQuery += ' WHERE id = @post_id';
+        updateQuery += ' WHERE id = @post_id'; // Lọc theo ID bài viết
 
-        const request = pool.request()
-            .input('post_id', sql.Int, postId);
-
+        const request = pool.request().input('post_id', sql.Int, postId);
+        // Duyệt qua mảng params để gán giá trị vào request tránh SQL Injection
         params.forEach(param => {
             request.input(param.name, param.type, param.value);
         });
 
-        await request.query(updateQuery);
+        await request.query(updateQuery); // Thực thi
     },
 
     async delete(postId, userId) {
@@ -138,46 +139,36 @@ const PostModel = {
 
     async toggleLike(postId, userId) {
         const pool = await getPool();
-        const actorResult = await pool.request()
-            .input('user_id', sql.Int, userId)
+        // Lấy tên người thực hiện like để đưa vào thông báo
+        const actorResult = await pool.request().input('user_id', sql.Int, userId)
             .query(`SELECT username FROM Users WHERE id = @user_id`);
         const actorName = actorResult.recordset[0]?.username || `User #${userId}`;
 
-        const ownerResult = await pool.request()
-            .input('post_id', sql.Int, postId)
+        // Lấy ID chủ bài viết để biết gửi thông báo cho ai
+        const ownerResult = await pool.request().input('post_id', sql.Int, postId)
             .query(`SELECT user_id FROM Posts WHERE id = @post_id`);
         const postOwnerId = ownerResult.recordset[0]?.user_id || null;
 
-        const existing = await pool.request()
-            .input('post_id', sql.Int, postId)
-            .input('user_id', sql.Int, userId)
+        // Kiểm tra xem user hiện tại đã like bài viết này chưa
+        const existing = await pool.request().input('post_id', sql.Int, postId).input('user_id', sql.Int, userId)
             .query(`SELECT id FROM Likes WHERE post_id = @post_id AND user_id = @user_id`);
 
         let liked;
         if (existing.recordset.length > 0) {
-            await pool.request()
-                .input('post_id', sql.Int, postId)
-                .input('user_id', sql.Int, userId)
-                .query(`DELETE FROM Likes WHERE post_id = @post_id AND user_id = @user_id`);
+            // Nếu đã like thì xóa bản ghi (Unlike)
+            await pool.request().query(`DELETE FROM Likes WHERE post_id = @post_id AND user_id = @user_id`);
             liked = false;
         } else {
-            await pool.request()
-                .input('post_id', sql.Int, postId)
-                .input('user_id', sql.Int, userId)
-                .query(`INSERT INTO Likes (post_id, user_id) VALUES (@post_id, @user_id)`);
+            // Nếu chưa like thì thêm bản ghi mới (Like)
+            await pool.request().query(`INSERT INTO Likes (post_id, user_id) VALUES (@post_id, @user_id)`);
             liked = true;
         }
 
-        const countResult = await pool.request()
-            .input('post_id', sql.Int, postId)
+        // Đếm tổng số like hiện tại của bài viết
+        const countResult = await pool.request().input('post_id', sql.Int, postId)
             .query(`SELECT COUNT(*) AS like_count FROM Likes WHERE post_id = @post_id`);
 
-        return {
-            liked,
-            like_count: countResult.recordset[0].like_count,
-            notify_user_id: postOwnerId,
-            actor_name: actorName
-        };
+        return { liked, like_count: countResult.recordset[0].like_count, notify_user_id: postOwnerId, actor_name: actorName };
     },
 
     async getComments(postId, currentUserId) {
@@ -244,18 +235,20 @@ const PostModel = {
 
     async deleteComment(commentId, userId) {
         const pool = await getPool();
+        // Kiểm tra xem comment có thuộc về userId này không
         const check = await pool.request()
             .input('comment_id', sql.Int, commentId)
             .input('user_id', sql.Int, userId)
             .query(`SELECT id FROM Comments WHERE id = @comment_id AND user_id = @user_id`);
-        if (check.recordset.length === 0) return false;
 
-        await pool.request()
-            .input('comment_id', sql.Int, commentId)
+        if (check.recordset.length === 0) return false; // Không chính chủ
+
+        // Xóa các lượt like của comment này trước để tránh lỗi ràng buộc dữ liệu
+        await pool.request().input('comment_id', sql.Int, commentId)
             .query(`DELETE FROM CommentLikes WHERE comment_id = @comment_id`);
 
-        await pool.request()
-            .input('comment_id', sql.Int, commentId)
+        // Xóa comment chính
+        await pool.request().input('comment_id', sql.Int, commentId)
             .query(`DELETE FROM Comments WHERE id = @comment_id`);
 
         return true;
@@ -264,6 +257,7 @@ const PostModel = {
     async toggleCommentLike(postId, commentId, userId) {
         const pool = await getPool();
 
+        // 1. Lấy UID của chủ comment để gửi thông báo
         const commentResult = await pool.request()
             .input('comment_id', sql.Int, commentId)
             .input('post_id', sql.Int, postId)
@@ -271,11 +265,13 @@ const PostModel = {
         if (commentResult.recordset.length === 0) return null;
         const commentOwnerId = commentResult.recordset[0].user_id;
 
+        // 2. Lấy tên user thực hiện thả tim
         const actorResult = await pool.request()
             .input('user_id', sql.Int, userId)
             .query(`SELECT username FROM Users WHERE id = @user_id`);
         const actorName = actorResult.recordset[0]?.username || `User #${userId}`;
 
+        // 3. Kiểm tra xem User này đã từng thả tim comment này chưa?
         const existing = await pool.request()
             .input('comment_id', sql.Int, commentId)
             .input('user_id', sql.Int, userId)
@@ -283,12 +279,14 @@ const PostModel = {
 
         let liked;
         if (existing.recordset.length > 0) {
+            // Đã Like -> Unlike (Xóa khỏi DB)
             await pool.request()
                 .input('comment_id', sql.Int, commentId)
                 .input('user_id', sql.Int, userId)
                 .query(`DELETE FROM CommentLikes WHERE comment_id = @comment_id AND user_id = @user_id`);
             liked = false;
         } else {
+            // Chưa Like -> Like (Thêm vào DB)
             await pool.request()
                 .input('comment_id', sql.Int, commentId)
                 .input('user_id', sql.Int, userId)
@@ -309,33 +307,28 @@ const PostModel = {
     },
 
     async togglePrivacy(postId, userId) {
-        const pool = await getPool();
+        const pool = await getPool(); // Kết nối tới SQL Server
 
-        // Add column if missing
-        const columnCheck = await pool.request().query(`
-            SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS
-            WHERE TABLE_NAME = 'Posts' AND COLUMN_NAME = 'is_private'
-        `);
-        if (columnCheck.recordset.length === 0) {
-            await pool.request().query(`ALTER TABLE Posts ADD is_private BIT DEFAULT 0`);
-        }
-
+        // Truy vấn kiểm tra sự tồn tại và quyền sở hữu bài viết
         const check = await pool.request()
-            .input('post_id', sql.Int, postId)
-            .input('user_id', sql.Int, userId)
+            .input('post_id', sql.Int, postId) // Truyền tham số ID bài viết
+            .input('user_id', sql.Int, userId) // Truyền tham số ID người dùng hiện tại
             .query(`SELECT id, is_private FROM Posts WHERE id = @post_id AND user_id = @user_id`);
 
+        // Nếu không có kết quả, trả về null
         if (check.recordset.length === 0) return null;
 
+        // Lấy giá trị hiện tại (mặc định 0 nếu null) và đảo ngược (0 sang 1, 1 sang 0)
         const currentPrivate = check.recordset[0].is_private || 0;
         const newPrivate = currentPrivate ? 0 : 1;
 
+        // Cập nhật trạng thái mới vào cột is_private của bài viết
         await pool.request()
             .input('post_id', sql.Int, postId)
-            .input('is_private', sql.Bit, newPrivate)
+            .input('is_private', sql.Bit, newPrivate) // Kiểu Bit tương ứng 0/1
             .query(`UPDATE Posts SET is_private = @is_private WHERE id = @post_id`);
 
-        return newPrivate;
+        return newPrivate; // Trả về trạng thái mới để Service nhận biết
     }
 };
 
