@@ -51,7 +51,12 @@ const PostModel = {
                     ON f.following_id = u.id AND f.follower_id = @currentUserId
                 WHERE (ISNULL(u.is_private, 0) = 0 OR p.user_id = @currentUserId)
                   AND ${isPrivateFilter}
-                ORDER BY p.created_at DESC
+                ORDER BY
+                    CASE
+                        WHEN p.user_id = @currentUserId OR f.follower_id IS NOT NULL THEN 0
+                        ELSE 1
+                    END,
+                    p.created_at DESC
             `);
 
         return result.recordset;

@@ -35,7 +35,8 @@ module.exports = function createPostsController({ emitToUser }) {
                     u.username,
                     ISNULL(lc.like_count, 0) AS like_count,
                     ISNULL(cc.comment_count, 0) AS comment_count,
-                    CASE WHEN ul.user_id IS NULL THEN 0 ELSE 1 END AS liked_by_current_user
+                    CASE WHEN ul.user_id IS NULL THEN 0 ELSE 1 END AS liked_by_current_user,
+                    CASE WHEN f.follower_id IS NULL THEN 0 ELSE 1 END AS is_following
                 FROM Posts p
                 LEFT JOIN Users u ON p.user_id = u.id
                 LEFT JOIN (
@@ -50,7 +51,14 @@ module.exports = function createPostsController({ emitToUser }) {
                 ) cc ON cc.post_id = p.id
                 LEFT JOIN Likes ul 
                     ON ul.post_id = p.id AND ul.user_id = @currentUserId
-                ORDER BY p.created_at DESC
+                LEFT JOIN Follows f
+                    ON f.following_id = u.id AND f.follower_id = @currentUserId
+                ORDER BY
+                    CASE
+                        WHEN p.user_id = @currentUserId OR f.follower_id IS NOT NULL THEN 0
+                        ELSE 1
+                    END,
+                    p.created_at DESC
             `);
 
             console.log('DEBUG POSTS:', JSON.stringify(result.recordset, null, 2));
