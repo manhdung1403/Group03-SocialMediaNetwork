@@ -72,6 +72,24 @@ CREATE TABLE CommentLikes
 );
 GO
 
+CREATE TABLE Notifications
+(
+    id         INT IDENTITY(1,1) PRIMARY KEY,
+    user_id    INT NOT NULL,
+    actor_id   INT NOT NULL,
+    type       NVARCHAR(50) NOT NULL,
+    post_id    INT NULL,
+    comment_id INT NULL,
+    message    NVARCHAR(MAX) NOT NULL,
+    is_read    BIT NOT NULL DEFAULT 0,
+    created_at DATETIME NOT NULL DEFAULT GETDATE(),
+    CONSTRAINT FK_Notifications_User FOREIGN KEY (user_id) REFERENCES Users(id),
+    CONSTRAINT FK_Notifications_Actor FOREIGN KEY (actor_id) REFERENCES Users(id),
+    CONSTRAINT FK_Notifications_Post FOREIGN KEY (post_id) REFERENCES Posts(id),
+    CONSTRAINT FK_Notifications_Comment FOREIGN KEY (comment_id) REFERENCES Comments(id)
+);
+GO
+
 CREATE TABLE Conversations
 (
     id           INT IDENTITY(1,1) PRIMARY KEY,
@@ -136,5 +154,10 @@ BEGIN
     WHERE m.conversation_id = @conversationId
     ORDER BY m.created_at ASC
 END
+GO
 
-"ALTER TABLE Posts ADD is_private BIT DEFAULT 0;" 
+IF COL_LENGTH('dbo.Posts', 'is_private') IS NULL
+BEGIN
+    ALTER TABLE dbo.Posts ADD is_private BIT DEFAULT 0;
+END
+GO

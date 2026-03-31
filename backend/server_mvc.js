@@ -129,6 +129,23 @@ server.listen(PORT, async () => {
                 );
             END
         `);
+
+        await pool.request().query(`
+            IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'Notifications' AND schema_id = SCHEMA_ID('dbo'))
+            BEGIN
+                CREATE TABLE dbo.Notifications (
+                    id INT IDENTITY(1,1) PRIMARY KEY,
+                    user_id INT NOT NULL FOREIGN KEY REFERENCES dbo.Users(id),
+                    actor_id INT NOT NULL FOREIGN KEY REFERENCES dbo.Users(id),
+                    type NVARCHAR(50) NOT NULL,
+                    post_id INT NULL FOREIGN KEY REFERENCES dbo.Posts(id),
+                    comment_id INT NULL FOREIGN KEY REFERENCES dbo.Comments(id),
+                    message NVARCHAR(MAX) NOT NULL,
+                    is_read BIT NOT NULL DEFAULT 0,
+                    created_at DATETIME NOT NULL DEFAULT GETDATE()
+                );
+            END
+        `);
     } catch (err) {
         console.error('Lỗi Database:', err.message);
     }
