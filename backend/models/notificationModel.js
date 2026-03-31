@@ -22,22 +22,21 @@ async function ensureNotificationsTable() {
 }
 
 const NotificationModel = {
-    // Chức năng: Thêm mới một thông báo xuất phát từ tương tác của người dùng
+    // Hàm tạo thông báo mới vào database
     async create({ userId, actorId, type, postId = null, commentId = null, message }) {
-        await ensureNotificationsTable();
-        const pool = await getPool();
+        await ensureNotificationsTable(); // Đảm bảo bảng Notifications đã tồn tại trong SQL Server
+        const pool = await getPool(); // Kết nối đến Database
         await pool.request()
-            .input('user_id', sql.Int, userId) // Người nhận chuông
-            .input('actor_id', sql.Int, actorId) // Người thực hiện tương tác tạo ra chuông
-            .input('type', sql.NVarChar(50), type)
-            .input('post_id', sql.Int, postId)
-            .input('comment_id', sql.Int, commentId)
-            .input('message', sql.NVarChar(sql.MAX), message) // Nội dung hiển thị
-            // Insert nội dung và mặc định is_read = 0 (false) tức chưa được đọc (chấm đỏ hiện)
+            .input('user_id', sql.Int, userId)      // ID người nhận thông báo (chủ bài viết/comment)
+            .input('actor_id', sql.Int, actorId)    // ID người thực hiện hành động (người like/comment)
+            .input('type', sql.NVarChar(50), type)  // Loại: 'post_like', 'comment', 'comment_like'
+            .input('post_id', sql.Int, postId)      // ID bài viết liên quan (nếu có)
+            .input('comment_id', sql.Int, commentId)// ID bình luận liên quan (nếu có)
+            .input('message', sql.NVarChar(sql.MAX), message) // Nội dung thông báo hiển thị
             .query(`
                 INSERT INTO Notifications (user_id, actor_id, type, post_id, comment_id, message, is_read, created_at)
                 VALUES (@user_id, @actor_id, @type, @post_id, @comment_id, @message, 0, GETDATE())
-            `);
+            `); // Mặc định is_read = 0 (chưa đọc) và lấy thời gian hiện tại
     },
 
     async getByUserId(userId) {

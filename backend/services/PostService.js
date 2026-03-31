@@ -71,7 +71,6 @@ const PostService = {
     },
 
     async togglePrivacy(postId, userId) {
-        // Gọi Model để thực hiện thay đổi trong Database
         const newPrivate = await PostModel.togglePrivacy(postId, userId);
         
         // Nếu Model trả về null (nghĩa là không tìm thấy bài viết hoặc không có quyền)

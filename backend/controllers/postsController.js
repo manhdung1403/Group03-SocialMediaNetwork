@@ -116,7 +116,7 @@ module.exports = function createPostsController({ emitToUser }) {
 
             // Gọi Service thực hiện toggle like
             const result = await PostService.toggleLike(postId, req.session.userId);
-            
+
             // Nếu hành động là "Like" thành công, tiến hành lưu thông báo
             if (result.liked && result.notify_user_id) {
                 await saveInteractionNotification(result.notify_user_id, req.session.userId, {
@@ -200,7 +200,7 @@ module.exports = function createPostsController({ emitToUser }) {
             }
             // Chuyển Service thực thi update thông tin tim của Comment
             const result = await PostService.toggleCommentLike(postId, commentId, req.session.userId);
-            
+
             // Xử lý thông báo: Nếu "Thả tim bình luận mới", logic tương tự như tim bài viết
             if (result.liked && result.notify_user_id) {
                 await saveInteractionNotification(result.notify_user_id, req.session.userId, {
@@ -231,7 +231,7 @@ module.exports = function createPostsController({ emitToUser }) {
 
             // Gọi Service để xử lý việc đảo ngược trạng thái riêng tư
             const result = await PostService.togglePrivacy(postId, req.session.userId);
-            
+
             // Trả về kết quả JSON cho phía Frontend
             return res.json(result);
         } catch (err) {

@@ -636,6 +636,14 @@
 
         // --- CÁC HÀM XỬ LÝ THEO YÊU CẦU ---
         
+        // 3. Đánh dấu đã đọc khi người dùng mở xem thông báo
+        async function markRead() {
+            // Gọi API: router.put('/api/notifications/read-all', ...)
+            await fetch('/api/notifications/read-all', { method: 'PUT' });
+            const badge = document.getElementById('badge');
+            if (badge) badge.style.display = 'none'; // Ẩn chấm đỏ
+        }
+
         // Hàm xử lý khi người dùng nhấn nút thay đổi quyền riêng tư của bài viết
         async function togglePostPrivacy(postId) {
             // Gọi API đã định nghĩa ở Backend: router.put('/api/posts/:id/privacy', ...)
@@ -793,7 +801,11 @@
             try {
                 notificationSocket = io(baseUrl, { withCredentials: true });
                 notificationSocket.emit('register', currentUser.id);
-                notificationSocket.on('unread_badge_update', () => loadChatUnreadBadge());
+                // 1. Lắng nghe sự kiện thông báo mới từ Server qua Socket.io
+                notificationSocket.on('unread_badge_update', () => {
+                    // Hàm này được gọi khi Server phát tín hiệu có tương tác mới
+                    loadChatUnreadBadge(); // Cập nhật chấm đỏ trên icon chuông thông báo
+                });
             } catch (e) { notificationSocket = null; }
         }
 
@@ -933,11 +945,13 @@
             }
         }
 
+        // 2. Hàm lấy danh sách thông báo và hiển thị
         async function loadNotifications() {
             if (!isLoggedIn) return;
             const list = document.getElementById('notificationsList');
             if (!list) return;
             try {
+                // Gọi API: router.get('/api/notifications', ...)
                 const response = await fetch(`${baseUrl}/api/notifications`, {
                     credentials: 'include'
                 });
@@ -963,6 +977,7 @@
                     list.innerHTML = '<p class="empty-state" style="padding:12px 0;">Chưa có thông báo.</p>';
                     return;
                 }
+                // Hiển thị danh sách lên giao diện
                 list.innerHTML = notifications.map(n => `
                     <div class="notification-item" data-post-id="${n.post_id || ''}" data-user-id="${n.actor_id || ''}" style="${n.is_read ? 'opacity:0.7;' : 'font-weight:600;'} cursor: pointer;">
                         <div>${escapeHtml(n.message || '')}</div>

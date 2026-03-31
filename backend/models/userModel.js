@@ -75,11 +75,11 @@ const UserModel = {
     },
 
     async updatePrivacy(userId, is_private) {
-        const pool = await getPool(); // Kết nối DB
+        const pool = await getPool(); 
         await pool.request()
             .input('is_private', sql.Bit, is_private ? 1 : 0) // Chuyển đổi true/false sang 1/0
             .input('userId', sql.Int, userId) // Chỉ định ID người dùng cần cập nhật
-            .query(`UPDATE Users SET is_private = @is_private WHERE id = @userId`); // Thực thi lệnh SQL
+            .query(`UPDATE Users SET is_private = @is_private WHERE id = @userId`);
     },
 
     async listUsers(currentUserId, search = '') {
