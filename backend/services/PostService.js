@@ -38,6 +38,35 @@ const PostService = {
         return { success: true, ...result };
     },
 
+    async getComments(postId, userId) {
+        const comments = await PostModel.getComments(postId, userId);
+        return comments;
+    },
+
+    async createComment(postId, userId, content) {
+        const result = await PostModel.createComment(postId, userId, content);
+        if (!result) {
+            throw { statusCode: 404, message: 'Bài viết không tồn tại' };
+        }
+        return { success: true, ...result };
+    },
+
+    async deleteComment(commentId, userId) {
+        const deleted = await PostModel.deleteComment(commentId, userId);
+        if (!deleted) {
+            throw { statusCode: 403, message: 'Không có quyền xóa bình luận này hoặc bình luận không tồn tại' };
+        }
+        return { success: true, message: 'Xóa bình luận thành công' };
+    },
+
+    async toggleCommentLike(postId, commentId, userId) {
+        const result = await PostModel.toggleCommentLike(postId, commentId, userId);
+        if (!result) {
+            throw { statusCode: 404, message: 'Bình luận không tồn tại' };
+        }
+        return { success: true, ...result };
+    },
+
     async togglePrivacy(postId, userId) {
         const newPrivate = await PostModel.togglePrivacy(postId, userId);
         if (newPrivate === null) {

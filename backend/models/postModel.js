@@ -138,6 +138,16 @@ const PostModel = {
 
     async toggleLike(postId, userId) {
         const pool = await getPool();
+        const actorResult = await pool.request()
+            .input('user_id', sql.Int, userId)
+            .query(`SELECT username FROM Users WHERE id = @user_id`);
+        const actorName = actorResult.recordset[0]?.username || `User #${userId}`;
+
+        const ownerResult = await pool.request()
+            .input('post_id', sql.Int, postId)
+            .query(`SELECT user_id FROM Posts WHERE id = @post_id`);
+        const postOwnerId = ownerResult.recordset[0]?.user_id || null;
+
         const existing = await pool.request()
             .input('post_id', sql.Int, postId)
             .input('user_id', sql.Int, userId)
@@ -162,7 +172,140 @@ const PostModel = {
             .input('post_id', sql.Int, postId)
             .query(`SELECT COUNT(*) AS like_count FROM Likes WHERE post_id = @post_id`);
 
-        return { liked, like_count: countResult.recordset[0].like_count };
+        return {
+            liked,
+            like_count: countResult.recordset[0].like_count,
+            notify_user_id: postOwnerId,
+            actor_name: actorName
+        };
+    },
+
+    async getComments(postId, currentUserId) {
+        const pool = await getPool();
+        const result = await pool.request()
+            .input('post_id', sql.Int, postId)
+            .input('current_user_id', sql.Int, currentUserId)
+            .query(`
+                SELECT
+                    c.id,
+                    c.post_id,
+                    c.user_id,
+                    u.username,
+                    c.content,
+                    c.created_at,
+                    ISNULL(cl.like_count, 0) AS likes,
+                    CASE WHEN ucl.id IS NULL THEN 0 ELSE 1 END AS liked
+                FROM Comments c
+                LEFT JOIN Users u ON u.id = c.user_id
+                LEFT JOIN (
+                    SELECT comment_id, COUNT(*) AS like_count
+                    FROM CommentLikes
+                    GROUP BY comment_id
+                ) cl ON cl.comment_id = c.id
+                LEFT JOIN CommentLikes ucl
+                    ON ucl.comment_id = c.id AND ucl.user_id = @current_user_id
+                WHERE c.post_id = @post_id
+                ORDER BY c.created_at ASC
+            `);
+
+        return result.recordset;
+    },
+
+    async createComment(postId, userId, content) {
+        const pool = await getPool();
+
+        const actorResult = await pool.request()
+            .input('user_id', sql.Int, userId)
+            .query(`SELECT username FROM Users WHERE id = @user_id`);
+        const actorName = actorResult.recordset[0]?.username || `User #${userId}`;
+
+        const ownerResult = await pool.request()
+            .input('post_id', sql.Int, postId)
+            .query(`SELECT user_id FROM Posts WHERE id = @post_id`);
+        if (ownerResult.recordset.length === 0) return null;
+        const postOwnerId = ownerResult.recordset[0].user_id;
+
+        const inserted = await pool.request()
+            .input('post_id', sql.Int, postId)
+            .input('user_id', sql.Int, userId)
+            .input('content', sql.NVarChar(sql.MAX), content)
+            .query(`
+                INSERT INTO Comments (post_id, user_id, content, created_at)
+                OUTPUT INSERTED.id, INSERTED.post_id, INSERTED.user_id, INSERTED.content, INSERTED.created_at
+                VALUES (@post_id, @user_id, @content, GETDATE())
+            `);
+
+        return {
+            comment: inserted.recordset[0],
+            notify_user_id: postOwnerId,
+            actor_name: actorName
+        };
+    },
+
+    async deleteComment(commentId, userId) {
+        const pool = await getPool();
+        const check = await pool.request()
+            .input('comment_id', sql.Int, commentId)
+            .input('user_id', sql.Int, userId)
+            .query(`SELECT id FROM Comments WHERE id = @comment_id AND user_id = @user_id`);
+        if (check.recordset.length === 0) return false;
+
+        await pool.request()
+            .input('comment_id', sql.Int, commentId)
+            .query(`DELETE FROM CommentLikes WHERE comment_id = @comment_id`);
+
+        await pool.request()
+            .input('comment_id', sql.Int, commentId)
+            .query(`DELETE FROM Comments WHERE id = @comment_id`);
+
+        return true;
+    },
+
+    async toggleCommentLike(postId, commentId, userId) {
+        const pool = await getPool();
+
+        const commentResult = await pool.request()
+            .input('comment_id', sql.Int, commentId)
+            .input('post_id', sql.Int, postId)
+            .query(`SELECT id, user_id, content FROM Comments WHERE id = @comment_id AND post_id = @post_id`);
+        if (commentResult.recordset.length === 0) return null;
+        const commentOwnerId = commentResult.recordset[0].user_id;
+
+        const actorResult = await pool.request()
+            .input('user_id', sql.Int, userId)
+            .query(`SELECT username FROM Users WHERE id = @user_id`);
+        const actorName = actorResult.recordset[0]?.username || `User #${userId}`;
+
+        const existing = await pool.request()
+            .input('comment_id', sql.Int, commentId)
+            .input('user_id', sql.Int, userId)
+            .query(`SELECT id FROM CommentLikes WHERE comment_id = @comment_id AND user_id = @user_id`);
+
+        let liked;
+        if (existing.recordset.length > 0) {
+            await pool.request()
+                .input('comment_id', sql.Int, commentId)
+                .input('user_id', sql.Int, userId)
+                .query(`DELETE FROM CommentLikes WHERE comment_id = @comment_id AND user_id = @user_id`);
+            liked = false;
+        } else {
+            await pool.request()
+                .input('comment_id', sql.Int, commentId)
+                .input('user_id', sql.Int, userId)
+                .query(`INSERT INTO CommentLikes (comment_id, user_id) VALUES (@comment_id, @user_id)`);
+            liked = true;
+        }
+
+        const countResult = await pool.request()
+            .input('comment_id', sql.Int, commentId)
+            .query(`SELECT COUNT(*) AS like_count FROM CommentLikes WHERE comment_id = @comment_id`);
+
+        return {
+            liked,
+            like_count: countResult.recordset[0].like_count,
+            notify_user_id: commentOwnerId,
+            actor_name: actorName
+        };
     },
 
     async togglePrivacy(postId, userId) {
